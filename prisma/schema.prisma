@@ -1,0 +1,107 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String   @id @default(uuid())
+  email            String   @unique
+  passwordHash     String
+  name             String
+  role             String   // ADMIN, SALE, DESIGNER, PRODUCTION, ACCOUNTANT
+  active           Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  quotes           Quote[]
+  approvedFiles    Order[]  @relation("FileApprover")
+}
+
+model Customer {
+  id          String   @id @default(uuid())
+  name        String
+  phone       String?
+  email       String?
+  address     String?
+  companyName String?
+  debtBalance Float    @default(0)
+  createdAt   DateTime @default(now())
+  quotes      Quote[]
+  orders      Order[]
+}
+
+model Quote {
+  id           String   @id @default(uuid())
+  quoteNumber  String   @unique
+  customerId   String
+  customer     Customer @relation(fields: [customerId], references: [id])
+  itemsJson    String   // JSON string details of the printed items
+  totalAmount  Float
+  status       String   // DRAFT, SENT, APPROVED, REJECTED
+  notes        String?
+  createdById  String
+  createdBy    User     @relation(fields: [createdById], references: [id])
+  createdAt    DateTime @default(now())
+  orders       Order[]
+}
+
+model Order {
+  id                    String           @id @default(uuid())
+  orderNumber           String           @unique
+  quoteId               String?
+  quote                 Quote?           @relation(fields: [quoteId], references: [id])
+  customerId            String
+  customer              Customer         @relation(fields: [customerId], references: [id])
+  status                String           // PENDING, DESIGNING, DESIGN_APPROVED, PRODUCING, COMPLETED, DELIVERED, CANCELLED
+  deliveryDate          DateTime
+  finalFileUrl          String?
+  finalFileName         String?
+  finalFileUploadedAt   DateTime?
+  finalFileApprovedById String?
+  finalFileApprovedBy   User?            @relation("FileApprover", fields: [finalFileApprovedById], references: [id])
+  totalAmount           Float
+  paidAmount            Float            @default(0)
+  debtAmount            Float            @default(0)
+  estimatedCost         Float            // Cost of production
+  estimatedProfit       Float            // Profit = totalAmount - estimatedCost
+  profitMargin          Float            // Margin = (estimatedProfit / totalAmount) * 100
+  notes                 String?
+  createdAt             DateTime         @default(now())
+  productionSteps       ProductionStep[]
+  payments              Payment[]
+}
+
+model ProductionStep {
+  id         String   @id @default(uuid())
+  orderId    String
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  stepName   String   // IN_AN, BE_THANH_PHAM, DAN_GIAO, DONG_GOI
+  status     String   // PENDING, PROCESSING, COMPLETED
+  assignedTo String?
+  updatedAt  DateTime @updatedAt
+}
+
+model Payment {
+  id            String   @id @default(uuid())
+  orderId       String
+  order         Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  amount        Float
+  paymentDate   DateTime @default(now())
+  paymentMethod String   // CASH, TRANSFER
+  notes         String?
+}
+
+model PricingConfig {
+  id          String   @id @default(uuid())
+  category    String   // GIAY, MAY_IN, GIA_CONG
+  key         String
+  value       Float
+  unit        String
+  description String?
+  updatedAt   DateTime @updatedAt
+}
