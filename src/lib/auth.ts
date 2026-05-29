@@ -58,7 +58,8 @@ export async function login(email: string, passwordPlain: string): Promise<{ suc
     return { success: true };
   } catch (error: any) {
     console.error('Lỗi đăng nhập:', error);
-    return { success: false, error: 'Đã xảy ra lỗi hệ thống.' };
+    const errMsg = error instanceof Error ? error.message : String(error);
+    return { success: false, error: `Lỗi kết nối CSDL: ${errMsg}` };
   }
 }
 
