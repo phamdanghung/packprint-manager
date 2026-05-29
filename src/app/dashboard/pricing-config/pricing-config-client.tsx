@@ -6,7 +6,7 @@ import {
   PlusCircle, Edit3, Power, AlertTriangle, CheckCircle2,
   AlertCircle, X, Loader2, ChevronDown, Eye
 } from 'lucide-react';
-import { formatVND } from '@/lib/utils';
+import { formatCurrencyVND } from '@/lib/utils';
 import {
   getMaterials, createMaterial, updateMaterial, toggleMaterialStatus,
   getLaminationPrices, createLaminationPrice, updateLaminationPrice, toggleLaminationStatus,
@@ -388,7 +388,7 @@ export default function PricingConfigClient({ initialMaterials, initialLaminatio
                       </span>
                     </Td>
                     <Td><span className="font-mono text-slate-600 dark:text-slate-400">{m.sheetWidthCm} × {m.sheetHeightCm}</span></Td>
-                    <Td right><span className="font-bold text-slate-800 dark:text-white">{formatVND(m.basePrice)}</span></Td>
+                    <Td right><span className="font-bold text-slate-800 dark:text-white">{formatCurrencyVND(m.basePrice)}</span></Td>
                     <Td><StatusBadge status={m.status} /></Td>
                     <Td><span className="text-slate-500 text-[11px] max-w-[120px] truncate block">{m.note || '—'}</span></Td>
                     <Td center>
@@ -429,7 +429,7 @@ export default function PricingConfigClient({ initialMaterials, initialLaminatio
                         {LAMINATION_TYPES[m.laminationType] || m.laminationType}
                       </span>
                     </Td>
-                    <Td right><span className="font-bold text-slate-800 dark:text-white">{m.pricePerSheet === 0 ? 'Miễn phí' : formatVND(m.pricePerSheet)}</span></Td>
+                    <Td right><span className="font-bold text-slate-800 dark:text-white">{m.pricePerSheet === 0 ? 'Miễn phí' : formatCurrencyVND(m.pricePerSheet)}</span></Td>
                     <Td><StatusBadge status={m.status} /></Td>
                     <Td><span className="text-slate-500 text-[11px]">{m.note || '—'}</span></Td>
                     <Td center>
@@ -466,8 +466,8 @@ export default function PricingConfigClient({ initialMaterials, initialLaminatio
                   <tr key={m.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/20 transition-all">
                     <Td><span className="font-bold text-slate-800 dark:text-slate-200">{m.minSheets.toLocaleString('vi-VN')}</span></Td>
                     <Td>{m.maxSheets != null ? <span className="font-bold">{m.maxSheets.toLocaleString('vi-VN')}</span> : <span className="italic text-slate-400">Không giới hạn</span>}</Td>
-                    <Td right><span className="font-bold text-orange-600 dark:text-orange-400">{formatVND(m.shapeCutPrice)}</span></Td>
-                    <Td right><span className="font-bold text-blue-600 dark:text-blue-400">{formatVND(m.straightCutPrice)}</span></Td>
+                    <Td right><span className="font-bold text-orange-600 dark:text-orange-400">{formatCurrencyVND(m.shapeCutPrice)}</span></Td>
+                    <Td right><span className="font-bold text-blue-600 dark:text-blue-400">{formatCurrencyVND(m.straightCutPrice)}</span></Td>
                     <Td><StatusBadge status={m.status} /></Td>
                     <Td center>
                       <div className="flex items-center justify-center gap-1">
@@ -537,7 +537,7 @@ export default function PricingConfigClient({ initialMaterials, initialLaminatio
                   <tr key={f.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/20 transition-all">
                     <Td><span className="font-bold text-slate-800 dark:text-slate-200">{f.minQuantity.toLocaleString('vi-VN')}</span></Td>
                     <Td>{f.maxQuantity != null ? <span className="font-bold">{f.maxQuantity.toLocaleString('vi-VN')}</span> : <span className="italic text-slate-400">Không giới hạn</span>}</Td>
-                    <Td right><span className="font-bold text-teal-600 dark:text-teal-400">{formatVND(f.feeAmount)}</span></Td>
+                    <Td right><span className="font-bold text-teal-600 dark:text-teal-400">{formatCurrencyVND(f.feeAmount)}</span></Td>
                     <Td><span className="text-slate-500 text-[11px]">{f.note || '—'}</span></Td>
                     <Td><StatusBadge status={f.status} /></Td>
                     <Td center>

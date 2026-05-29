@@ -169,6 +169,17 @@ export async function switchRoleDemo(newRole: 'ADMIN' | 'MANAGER' | 'SALES' | 'D
     console.error('[SECURITY] switchRoleDemo bị từ chối: không phải môi trường development.');
     return false;
   }
+  
+  try {
+    const headersList = await headers();
+    const host = headersList.get('host') || '';
+    if (!host.includes('localhost') && !host.includes('127.0.0.1')) {
+      console.error('[SECURITY] switchRoleDemo bị từ chối: không phải localhost.');
+      return false;
+    }
+  } catch (e) {
+    return false;
+  }
 
   try {
     const currentUser = await getCurrentUser();

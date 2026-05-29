@@ -2,6 +2,12 @@ export function cn(...classes: (string | undefined | null | boolean)[]) {
   return classes.filter(Boolean).join(' ');
 }
 
+export function formatCurrencyVND(amount: number): string {
+  if (amount === 0) return '0 đ';
+  // Use toLocaleString to ensure correct thousands separators without currency symbol issues
+  return amount.toLocaleString('vi-VN', { maximumFractionDigits: 0 }) + ' đ';
+}
+
 export function formatVND(value: number): string {
   return new Intl.NumberFormat('vi-VN', {
     style: 'currency',
