@@ -1,13 +1,22 @@
 import { PrismaClient } from '@prisma/client';
 import path from 'path';
+import fs from 'fs';
 
-// Xác định đường dẫn tuyệt đối chính xác 100% đến file SQLite database
-// process.cwd() trả về thư mục gốc của project (trên Vercel là /var/task)
+// Dòng này cực kỳ quan trọng: Bắt buộc Next.js/Webpack compiler nhận diện 
+// tệp database làm dependency tĩnh để tự động đóng gói (bundle) vào Serverless Lambda
+try {
+  const dummyPath = path.join(process.cwd(), 'prisma', 'dev.db');
+  if (fs.existsSync(dummyPath)) {
+    const size = fs.statSync(dummyPath).size;
+    console.log('SQLite database found during compile, size:', size);
+  }
+} catch (e) {
+  // Bỏ qua lỗi trong lúc build tĩnh
+}
+
+// Xác định đường dẫn tuyệt đối chính xác 100% đến file SQLite database tại runtime
 const dbPath = path.join(process.cwd(), 'prisma', 'dev.db');
 const databaseUrl = `file:${dbPath}`;
-
-// Thiết lập vào môi trường để Prisma CLI hoặc các thành phần khác có thể đọc (phòng hờ)
-process.env.DATABASE_URL = databaseUrl;
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
