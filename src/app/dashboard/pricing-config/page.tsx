@@ -4,7 +4,7 @@ import { db } from '@/lib/db';
 import { formatVND, formatDate } from '@/lib/utils';
 
 export default async function PricingConfigPage() {
-  const configs = await db.pricingConfig.findMany({
+  const configs = await db.priceRule.findMany({
     orderBy: {
       category: 'asc'
     }
@@ -12,9 +12,9 @@ export default async function PricingConfigPage() {
 
   const getCategoryName = (cat: string) => {
     switch (cat) {
-      case 'GIAY':
+      case 'GIAY_IN':
         return 'Chất liệu Giấy in';
-      case 'MAY_IN':
+      case 'CONG_IN':
         return 'Công suất & Ca máy in';
       case 'GIA_CONG':
         return 'Gia công thành phẩm';
@@ -25,9 +25,9 @@ export default async function PricingConfigPage() {
 
   const getCategoryIcon = (cat: string) => {
     switch (cat) {
-      case 'GIAY':
+      case 'GIAY_IN':
         return <Paperclip className="h-4.5 w-4.5 text-teal-500" />;
-      case 'MAY_IN':
+      case 'CONG_IN':
         return <Layers className="h-4.5 w-4.5 text-indigo-500" />;
       default:
         return <CheckSquare className="h-4.5 w-4.5 text-orange-500" />;
@@ -51,8 +51,8 @@ export default async function PricingConfigPage() {
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 rounded-3xl p-6 shadow-sm space-y-6">
         <h3 className="text-sm font-bold text-slate-800 dark:text-white">Định mức chi phí cấu thành báo giá in ấn</h3>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {['GIAY', 'MAY_IN', 'GIA_CONG'].map((cat) => {
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {['GIAY_IN', 'CONG_IN', 'GIA_CONG'].map((cat) => {
             const catConfigs = configs.filter(c => c.category === cat);
 
             return (

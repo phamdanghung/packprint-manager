@@ -34,14 +34,14 @@ export default function Header({ user }: HeaderProps) {
 
   // Xác định tên Module dựa trên đường dẫn
   const getPageTitle = () => {
-    if (pathname === '/dashboard') return 'Bảng điều khiển Tổng quan';
-    if (pathname.includes('/customers')) return 'Quản lý Khách hàng';
-    if (pathname.includes('/quotes')) return 'Báo giá & Dự toán chi phí';
-    if (pathname.includes('/orders')) return 'Danh sách Đơn hàng';
-    if (pathname.includes('/design-approval')) return 'Duyệt File thiết kế';
-    if (pathname.includes('/production')) return 'Quản lý Tiến độ Sản xuất';
-    if (pathname.includes('/debt')) return 'Báo cáo Thu chi & Công nợ';
-    if (pathname.includes('/pricing-config')) return 'Cấu hình Bảng giá Dịch vụ';
+    if (pathname === '/dashboard') return 'Dashboard Tổng quan';
+    if (pathname.includes('/customers')) return 'Khách hàng';
+    if (pathname.includes('/quotes')) return 'Báo giá';
+    if (pathname.includes('/orders')) return 'Đơn hàng';
+    if (pathname.includes('/design-approval')) return 'Duyệt file thiết kế';
+    if (pathname.includes('/production')) return 'Tiến độ sản xuất';
+    if (pathname.includes('/debt')) return 'Công nợ & Thu chi';
+    if (pathname.includes('/pricing-config')) return 'Cấu hình bảng giá';
     return 'Hệ thống Quản lý';
   };
 

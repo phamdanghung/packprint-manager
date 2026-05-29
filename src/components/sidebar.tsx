@@ -30,13 +30,13 @@ interface MenuItem {
 
 const MENU_ITEMS: MenuItem[] = [
   { name: 'Dashboard Tổng quan', href: '/dashboard', icon: LayoutDashboard, roles: ['ADMIN', 'SALE', 'DESIGNER', 'PRODUCTION', 'ACCOUNTANT'] },
-  { name: 'Quản lý Khách hàng', href: '/dashboard/customers', icon: Users, roles: ['ADMIN', 'SALE'] },
-  { name: 'Báo giá & Chi phí', href: '/dashboard/quotes', icon: FileText, roles: ['ADMIN', 'SALE', 'ACCOUNTANT'] },
-  { name: 'Danh sách Đơn hàng', href: '/dashboard/orders', icon: ShoppingBag, roles: ['ADMIN', 'SALE', 'DESIGNER', 'PRODUCTION', 'ACCOUNTANT'] },
-  { name: 'Duyệt File thiết kế', href: '/dashboard/design-approval', icon: FileCheck, roles: ['ADMIN', 'DESIGNER'] },
-  { name: 'Tiến độ Sản xuất', href: '/dashboard/production', icon: Cpu, roles: ['ADMIN', 'PRODUCTION'] },
-  { name: 'Thu chi & Công nợ', href: '/dashboard/debt', icon: DollarSign, roles: ['ADMIN', 'ACCOUNTANT', 'SALE'] },
-  { name: 'Cấu hình Bảng giá', href: '/dashboard/pricing-config', icon: Sliders, roles: ['ADMIN', 'ACCOUNTANT'] },
+  { name: 'Khách hàng', href: '/dashboard/customers', icon: Users, roles: ['ADMIN', 'SALE'] },
+  { name: 'Báo giá', href: '/dashboard/quotes', icon: FileText, roles: ['ADMIN', 'SALE', 'ACCOUNTANT'] },
+  { name: 'Đơn hàng', href: '/dashboard/orders', icon: ShoppingBag, roles: ['ADMIN', 'SALE', 'DESIGNER', 'PRODUCTION', 'ACCOUNTANT'] },
+  { name: 'Duyệt file thiết kế', href: '/dashboard/design-approval', icon: FileCheck, roles: ['ADMIN', 'DESIGNER'] },
+  { name: 'Tiến độ sản xuất', href: '/dashboard/production', icon: Cpu, roles: ['ADMIN', 'PRODUCTION'] },
+  { name: 'Công nợ & Thu chi', href: '/dashboard/debt', icon: DollarSign, roles: ['ADMIN', 'ACCOUNTANT', 'SALE'] },
+  { name: 'Cấu hình bảng giá', href: '/dashboard/pricing-config', icon: Sliders, roles: ['ADMIN', 'ACCOUNTANT'] },
 ];
 
 export default function Sidebar({ user }: SidebarProps) {
@@ -53,8 +53,8 @@ export default function Sidebar({ user }: SidebarProps) {
           <Printer className="h-5 w-5" />
         </div>
         <div className="flex flex-col">
-          <span className="font-bold text-white tracking-wide text-sm">PackPrint ERP</span>
-          <span className="text-[10px] text-teal-400 font-semibold tracking-wider uppercase">In ấn bao bì</span>
+          <span className="font-bold text-white tracking-wide text-sm">PackPrint Manager</span>
+          <span className="text-[10px] text-teal-400 font-semibold tracking-wider uppercase">Hệ thống quản lý in ấn bao bì</span>
         </div>
       </div>
 

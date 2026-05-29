@@ -11,7 +11,8 @@ export default async function DesignApprovalPage() {
       }
     },
     include: {
-      customer: true
+      customer: true,
+      designFiles: true
     },
     orderBy: {
       createdAt: 'desc'
@@ -43,10 +44,10 @@ export default async function DesignApprovalPage() {
                         </span>
                       </div>
                       <p className="text-[10px] text-slate-500 font-medium">Khách hàng: <strong>{o.customer.name}</strong></p>
-                      {o.finalFileName ? (
+                      {o.designFiles && o.designFiles.length > 0 ? (
                         <div className="text-[10px] text-teal-600 font-bold flex items-center gap-1">
                           <FileCheck className="h-3.5 w-3.5" />
-                          <span>File: {o.finalFileName}</span>
+                          <span>File: {o.designFiles[0].fileName}</span>
                         </div>
                       ) : (
                         <div className="text-[10px] text-amber-600 font-bold italic">Chưa tải lên file final</div>

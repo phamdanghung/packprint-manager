@@ -7,19 +7,19 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = "file:./dev.db"
+  url      = env("DATABASE_URL")
 }
 
 model User {
-  id               String   @id @default(uuid())
-  email            String   @unique
-  passwordHash     String
-  name             String
-  role             String   // ADMIN, SALE, DESIGNER, PRODUCTION, ACCOUNTANT
-  active           Boolean  @default(true)
-  createdAt        DateTime @default(now())
-  quotes           Quote[]
-  approvedFiles    Order[]  @relation("FileApprover")
+  id            String       @id @default(uuid())
+  email         String       @unique
+  passwordHash  String
+  name          String
+  role          String       // ADMIN, SALE, DESIGNER, PRODUCTION, ACCOUNTANT
+  active        Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  quotes        Quote[]
+  approvedFiles DesignFile[] @relation("FileApprover")
 }
 
 model Customer {
@@ -36,44 +36,79 @@ model Customer {
 }
 
 model Quote {
-  id           String   @id @default(uuid())
-  quoteNumber  String   @unique
+  id           String      @id @default(uuid())
+  quoteNumber  String      @unique
   customerId   String
-  customer     Customer @relation(fields: [customerId], references: [id])
-  itemsJson    String   // JSON string details of the printed items
+  customer     Customer    @relation(fields: [customerId], references: [id])
   totalAmount  Float
-  status       String   // DRAFT, SENT, APPROVED, REJECTED
+  status       String      // DRAFT, SENT, APPROVED, REJECTED
   notes        String?
   createdById  String
-  createdBy    User     @relation(fields: [createdById], references: [id])
-  createdAt    DateTime @default(now())
+  createdBy    User        @relation(fields: [createdById], references: [id])
+  createdAt    DateTime    @default(now())
+  items        QuoteItem[]
   orders       Order[]
 }
 
+model QuoteItem {
+  id       String @id @default(uuid())
+  quoteId  String
+  quote    Quote  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  name     String // Tên sản phẩm, ví dụ: Hộp giấy Couche
+  qty      Int    // Số lượng in
+  size     String // Kích thước
+  paper    String // Chất liệu giấy
+  print    String // Quy cách in
+  process  String // Quy cách gia công
+  price    Float  // Đơn giá sản phẩm
+}
+
 model Order {
-  id                    String           @id @default(uuid())
-  orderNumber           String           @unique
-  quoteId               String?
-  quote                 Quote?           @relation(fields: [quoteId], references: [id])
-  customerId            String
-  customer              Customer         @relation(fields: [customerId], references: [id])
-  status                String           // PENDING, DESIGNING, DESIGN_APPROVED, PRODUCING, COMPLETED, DELIVERED, CANCELLED
-  deliveryDate          DateTime
-  finalFileUrl          String?
-  finalFileName         String?
-  finalFileUploadedAt   DateTime?
-  finalFileApprovedById String?
-  finalFileApprovedBy   User?            @relation("FileApprover", fields: [finalFileApprovedById], references: [id])
-  totalAmount           Float
-  paidAmount            Float            @default(0)
-  debtAmount            Float            @default(0)
-  estimatedCost         Float            // Cost of production
-  estimatedProfit       Float            // Profit = totalAmount - estimatedCost
-  profitMargin          Float            // Margin = (estimatedProfit / totalAmount) * 100
-  notes                 String?
-  createdAt             DateTime         @default(now())
-  productionSteps       ProductionStep[]
-  payments              Payment[]
+  id              String           @id @default(uuid())
+  orderNumber     String           @unique
+  quoteId         String?
+  quote           Quote?           @relation(fields: [quoteId], references: [id])
+  customerId      String
+  customer        Customer         @relation(fields: [customerId], references: [id])
+  status          String           // PENDING, DESIGNING, DESIGN_APPROVED, PRODUCING, COMPLETED, DELIVERED, CANCELLED
+  deliveryDate    DateTime
+  totalAmount     Float
+  paidAmount      Float            @default(0)
+  debtAmount      Float            @default(0)
+  estimatedCost   Float            // Chi phí sản xuất dự toán
+  estimatedProfit Float            // Lợi nhuận ước tính
+  profitMargin    Float            // Tỷ suất lợi nhuận (%)
+  notes           String?
+  createdAt       DateTime         @default(now())
+  items           OrderItem[]
+  designFiles     DesignFile[]
+  productionSteps ProductionStep[]
+  payments        Payment[]
+}
+
+model OrderItem {
+  id      String @id @default(uuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  name    String
+  qty     Int
+  size    String
+  paper   String
+  print   String
+  process String
+  price   Float
+}
+
+model DesignFile {
+  id            String    @id @default(uuid())
+  orderId       String
+  order         Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  fileName      String    // Tên file final
+  fileUrl       String    // Đường dẫn file
+  uploadedAt    DateTime  @default(now())
+  approvedById  String?
+  approvedBy    User?     @relation("FileApprover", fields: [approvedById], references: [id])
+  approvedAt    DateTime?
 }
 
 model ProductionStep {
@@ -96,12 +131,22 @@ model Payment {
   notes         String?
 }
 
-model PricingConfig {
+model Material {
+  id           String   @id @default(uuid())
+  name         String   // Tên vật tư (Giấy Couche 300, Decal, Ghim...)
+  type         String   // Phân loại: GIAY, NHU, MANG, MUC, PHU_LIEU
+  qtyInStock   Float    @default(0) // Số lượng tồn kho
+  unit         String   // Đơn vị tính: Tờ, Mét, Cuộn, Kg
+  pricePerUnit Float    // Đơn giá nhập khẩu/vật tư
+  updatedAt    DateTime @updatedAt
+}
+
+model PriceRule {
   id          String   @id @default(uuid())
-  category    String   // GIAY, MAY_IN, GIA_CONG
-  key         String
-  value       Float
-  unit        String
-  description String?
+  category    String   // Phân loại quy tắc: GIAY_IN, CONG_IN, GIA_CONG
+  key         String   // Tên quy tắc (như: In offset Mitsubishi ca máy, Cán màng mờ...)
+  value       Float    // Giá áp dụng định mức
+  unit        String   // Đơn vị tính
+  description String?  // Mô tả quy tắc
   updatedAt   DateTime @updatedAt
 }

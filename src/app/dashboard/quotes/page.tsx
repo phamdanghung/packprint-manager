@@ -8,6 +8,7 @@ export default async function QuotesPage() {
     include: {
       customer: true,
       createdBy: true,
+      items: true,
     },
     orderBy: {
       createdAt: 'desc',
@@ -71,7 +72,7 @@ export default async function QuotesPage() {
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 bg-white dark:bg-transparent">
               {quotes.map((q) => {
                 const statusBadge = getQuoteStatus(q.status);
-                const items = JSON.parse(q.itemsJson) as any[];
+                const items = q.items;
 
                 return (
                   <tr key={q.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-all group">

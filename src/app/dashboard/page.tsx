@@ -56,6 +56,7 @@ export default async function DashboardPage() {
         customer: true,
         quote: true,
         productionSteps: true,
+        designFiles: true,
       },
       orderBy: {
         createdAt: 'desc'
@@ -413,17 +414,17 @@ export default async function DashboardPage() {
 
                     {/* File final */}
                     <td className="py-4 px-4 max-w-[150px]">
-                      {order.finalFileName ? (
+                      {order.designFiles && order.designFiles.length > 0 ? (
                         <div className="flex items-center gap-1.5">
                           <Link 
                             href="#" 
-                            title={`Tải xuống file final: ${order.finalFileName}`}
+                            title={`Tải xuống file final: ${order.designFiles[0].fileName}`}
                             className="p-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-teal-500/10 hover:text-teal-600 dark:hover:text-teal-400 transition-colors cursor-pointer flex-shrink-0"
                           >
                             <Download className="h-3.5 w-3.5" />
                           </Link>
-                          <span className="font-medium text-slate-700 dark:text-slate-300 truncate" title={order.finalFileName}>
-                            {order.finalFileName}
+                          <span className="font-medium text-slate-700 dark:text-slate-300 truncate" title={order.designFiles[0].fileName}>
+                            {order.designFiles[0].fileName}
                           </span>
                         </div>
                       ) : (
