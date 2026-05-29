@@ -158,22 +158,63 @@ model Payment {
   notes         String?
 }
 
+
 model Material {
-  id           String   @id @default(uuid())
-  name         String   // Tên vật tư (Giấy Couche 300, Decal, Ghim...)
-  type         String   // Phân loại: GIAY, NHU, MANG, MUC, PHU_LIEU
-  qtyInStock   Float    @default(0) // Số lượng tồn kho
-  unit         String   // Đơn vị tính: Tờ, Mét, Cuộn, Kg
-  pricePerUnit Float    // Đơn giá nhập khẩu/vật tư
-  updatedAt    DateTime @updatedAt
+  id               String   @id @default(uuid())
+  materialCode     String   @unique // DECAL-GIAY-3235, ...
+  name             String
+  materialType     String   // DECAL_GIAY, DECAL_NHUA_SUA, DECAL_NHUA_TRONG, DECAL_XI_BAC, DECAL_7_MAU, PAPER, OTHER
+  sheetWidthCm     Float    @default(32)
+  sheetHeightCm    Float    @default(35)
+  basePrice        Float    @default(0) // Đơn giá/tờ (VND)
+  unit             String   @default("SHEET")
+  status           String   @default("ACTIVE") // ACTIVE, INACTIVE
+  note             String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }
 
-model PriceRule {
+model LaminationPrice {
+  id             String   @id @default(uuid())
+  name           String
+  laminationType String   // NONE, THERMAL_GLOSS, THERMAL_MATTE, ADHESIVE_GLOSS, ADHESIVE_MATTE
+  pricePerSheet  Float    @default(0)
+  status         String   @default("ACTIVE")
+  note           String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model DieCutPrice {
+  id               String   @id @default(uuid())
+  minSheets        Int
+  maxSheets        Int?     // null = bậc cuối không giới hạn
+  shapeCutPrice    Float    // Giá bế theo hình/tờ
+  straightCutPrice Float    // Giá bế thẳng/tờ
+  status           String   @default("ACTIVE")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model PricingRule {
   id          String   @id @default(uuid())
-  category    String   // Phân loại quy tắc: GIAY_IN, CONG_IN, GIA_CONG
-  key         String   // Tên quy tắc (như: In offset Mitsubishi ca máy, Cán màng mờ...)
-  value       Float    // Giá áp dụng định mức
-  unit        String   // Đơn vị tính
-  description String?  // Mô tả quy tắc
+  ruleCode    String   @unique
+  ruleName    String
+  description String?
+  configJson  String   // JSON string chứa cấu hình quy tắc
+  status      String   @default("ACTIVE")
+  createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
+
+model FileHandlingFee {
+  id          String   @id @default(uuid())
+  minQuantity Int
+  maxQuantity Int?     // null = bậc cuối không giới hạn
+  feeAmount   Float
+  note        String?
+  status      String   @default("ACTIVE")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+

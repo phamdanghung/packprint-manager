@@ -36,7 +36,7 @@ const MENU_ITEMS: MenuItem[] = [
   { name: 'Duyệt file thiết kế', href: '/dashboard/design-approval', icon: FileCheck, roles: ['ADMIN', 'MANAGER', 'DESIGNER', 'SALES'] },
   { name: 'Tiến độ sản xuất', href: '/dashboard/production', icon: Cpu, roles: ['ADMIN', 'MANAGER', 'PRODUCTION', 'DELIVERY'] },
   { name: 'Công nợ & Thu chi', href: '/dashboard/payments', icon: DollarSign, roles: ['ADMIN', 'MANAGER', 'ACCOUNTANT'] },
-  { name: 'Cấu hình bảng giá', href: '/dashboard/pricing-config', icon: Sliders, roles: ['ADMIN', 'MANAGER', 'ACCOUNTANT'] },
+  { name: 'Cấu hình bảng giá', href: '/dashboard/pricing-config', icon: Sliders, roles: ['ADMIN', 'MANAGER'] },
 ];
 
 export default function Sidebar({ user }: SidebarProps) {

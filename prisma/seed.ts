@@ -9,7 +9,10 @@ function hashPassword(password: string): string {
 
 async function main() {
   console.log('Bắt đầu dọn dẹp database...');
-  await prisma.priceRule.deleteMany({});
+  await prisma.fileHandlingFee.deleteMany({});
+  await prisma.pricingRule.deleteMany({});
+  await prisma.dieCutPrice.deleteMany({});
+  await prisma.laminationPrice.deleteMany({});
   await prisma.material.deleteMany({});
   await prisma.payment.deleteMany({});
   await prisma.productionStep.deleteMany({});
@@ -569,28 +572,108 @@ async function main() {
     },
   });
 
-  // 5. Tạo Materials
-  console.log('Tạo nguyên vật liệu mẫu...');
+  // 5. Seed Materials (Vật tư decal khổ 32x35)
+  console.log('Tạo vật tư decal mẫu...');
   await prisma.material.createMany({
     data: [
-      { name: 'Giấy Couche 300gsm', type: 'GIAY', qtyInStock: 5000, unit: 'Tờ A3', pricePerUnit: 3200 },
-      { name: 'Giấy Kraft nâu 180gsm', type: 'GIAY', qtyInStock: 10000, unit: 'Tờ A3', pricePerUnit: 1500 },
-      { name: 'Giấy Ivory 350gsm', type: 'GIAY', qtyInStock: 2500, unit: 'Tờ A3', pricePerUnit: 4800 },
-      { name: 'Cuộn nhũ vàng ép kim', type: 'PHU_LIEU', qtyInStock: 15, unit: 'Cuộn', pricePerUnit: 220000 },
-      { name: 'Màng PE bóng cán nhiệt', type: 'MANG', qtyInStock: 8, unit: 'Cuộn', pricePerUnit: 450000 },
+      { materialCode: 'DECAL-GIAY-3235', name: 'Decal giấy 32x35', materialType: 'DECAL_GIAY', sheetWidthCm: 32, sheetHeightCm: 35, basePrice: 2500, unit: 'SHEET', status: 'ACTIVE' },
+      { materialCode: 'DECAL-NHUA-SUA-3235', name: 'Decal nhựa sữa 32x35', materialType: 'DECAL_NHUA_SUA', sheetWidthCm: 32, sheetHeightCm: 35, basePrice: 3500, unit: 'SHEET', status: 'ACTIVE' },
+      { materialCode: 'DECAL-NHUA-TRONG-3235', name: 'Decal nhựa trong 32x35', materialType: 'DECAL_NHUA_TRONG', sheetWidthCm: 32, sheetHeightCm: 35, basePrice: 4000, unit: 'SHEET', status: 'ACTIVE' },
+      { materialCode: 'DECAL-XI-BAC-3235', name: 'Decal xi bạc 32x35', materialType: 'DECAL_XI_BAC', sheetWidthCm: 32, sheetHeightCm: 35, basePrice: 4500, unit: 'SHEET', status: 'ACTIVE' },
+      { materialCode: 'DECAL-7-MAU-3235', name: 'Decal 7 màu 32x35', materialType: 'DECAL_7_MAU', sheetWidthCm: 32, sheetHeightCm: 35, basePrice: 5000, unit: 'SHEET', status: 'ACTIVE' },
     ],
   });
 
-  // 6. Tạo PriceRules
-  console.log('Tạo quy tắc giá mẫu...');
-  await prisma.priceRule.createMany({
+  // 6. Seed LaminationPrice (Giá cán màng)
+  console.log('Tạo bảng giá cán màng mẫu...');
+  await prisma.laminationPrice.createMany({
     data: [
-      { category: 'GIAY_IN', key: 'Giấy Couche 300gsm', value: 4500, unit: 'Tờ A3', description: 'Giấy Couche định lượng 300g mịn 2 mặt' },
-      { category: 'GIAY_IN', key: 'Giấy Kraft nâu 180gsm', value: 2200, unit: 'Tờ A3', description: 'Giấy Kraft tái chế thân thiện môi trường' },
-      { category: 'GIAY_IN', key: 'Giấy Ivory 350gsm', value: 6800, unit: 'Tờ A3', description: 'Giấy Ivory cao cấp vỏ hộp trà/mỹ phẩm' },
-      { category: 'CONG_IN', key: 'Chạy in ca máy offset Mitsubishi 4 màu', value: 1200000, unit: 'Ca', description: 'Đơn giá in theo ca chạy' },
-      { category: 'GIA_CONG', key: 'Cán màng mờ bảo vệ', value: 400, unit: 'Mặt/A3', description: 'Phủ màng mờ bề mặt in' },
-      { category: 'GIA_CONG', key: 'Ép kim logo nhũ vàng', value: 1500, unit: 'Sản phẩm', description: 'Ép kim nhũ logo kích thước dưới 5x5cm' },
+      { name: 'Không cán màng', laminationType: 'NONE', pricePerSheet: 0, status: 'ACTIVE' },
+      { name: 'Cán nhiệt bóng', laminationType: 'THERMAL_GLOSS', pricePerSheet: 1000, status: 'ACTIVE' },
+      { name: 'Cán nhiệt mờ', laminationType: 'THERMAL_MATTE', pricePerSheet: 1000, status: 'ACTIVE' },
+      { name: 'Cán màng keo bóng', laminationType: 'ADHESIVE_GLOSS', pricePerSheet: 1200, status: 'ACTIVE' },
+      { name: 'Cán màng keo mờ', laminationType: 'ADHESIVE_MATTE', pricePerSheet: 1200, status: 'ACTIVE' },
+    ],
+  });
+
+  // 7. Seed DieCutPrice (Bảng giá bế demi khổ 32x35)
+  console.log('Tạo bảng giá bế demi mẫu...');
+  await prisma.dieCutPrice.createMany({
+    data: [
+      { minSheets: 1,   maxSheets: 20,  shapeCutPrice: 8000, straightCutPrice: 5600, status: 'ACTIVE' },
+      { minSheets: 21,  maxSheets: 30,  shapeCutPrice: 7000, straightCutPrice: 4900, status: 'ACTIVE' },
+      { minSheets: 31,  maxSheets: 50,  shapeCutPrice: 6000, straightCutPrice: 4200, status: 'ACTIVE' },
+      { minSheets: 51,  maxSheets: 80,  shapeCutPrice: 5000, straightCutPrice: 3500, status: 'ACTIVE' },
+      { minSheets: 81,  maxSheets: 150, shapeCutPrice: 4000, straightCutPrice: 2800, status: 'ACTIVE' },
+      { minSheets: 151, maxSheets: 200, shapeCutPrice: 3000, straightCutPrice: 2100, status: 'ACTIVE' },
+      { minSheets: 201, maxSheets: null, shapeCutPrice: 2500, straightCutPrice: 1800, status: 'ACTIVE' },
+    ],
+  });
+
+  // 8. Seed PricingRule (Quy tắc tính giá)
+  console.log('Tạo quy tắc tính giá mẫu...');
+  await prisma.pricingRule.createMany({
+    data: [
+      {
+        ruleCode: 'ROUND_5CM_LABEL_RULE',
+        ruleName: 'Quy tắc nhãn tròn 5cm',
+        description: 'Nếu nhãn tròn 5cm và số lượng trên 1000 nhãn thì đề xuất 34 nhãn/tờ. Nếu dưới 1000 nhãn thì đề xuất 30 nhãn/tờ.',
+        configJson: JSON.stringify({ diameterCm: 5, thresholdQuantity: 1000, labelsPerSheetAboveThreshold: 34, labelsPerSheetBelowThreshold: 30 }),
+        status: 'ACTIVE',
+      },
+      {
+        ruleCode: 'MATERIAL_DISCOUNT_OVER_200_SHEETS',
+        ruleName: 'Giảm giá vật tư trên 200 tờ',
+        description: 'Nếu số tờ in trên 200 thì giảm 5% đơn giá vật tư.',
+        configJson: JSON.stringify({ minSheets: 201, discountPercent: 5 }),
+        status: 'ACTIVE',
+      },
+      {
+        ruleCode: 'DIE_CUT_LESS_THAN_8_LABELS',
+        ruleName: 'Giảm giá bế khi ít nhãn trên tờ',
+        description: 'Nếu 1 tờ có dưới 8 nhãn và tổng số tờ trên 100 thì giá bế bằng 90% giá bảng.',
+        configJson: JSON.stringify({ maxLabelsPerSheet: 7, minTotalSheets: 101, priceMultiplier: 0.9 }),
+        status: 'ACTIVE',
+      },
+      {
+        ruleCode: 'DIE_CUT_OVER_100_LABELS',
+        ruleName: 'Tăng giá bế khi trên 100 nhãn/tờ',
+        description: 'Nếu 1 tờ có trên 100 nhãn thì giá bế tăng 10%.',
+        configJson: JSON.stringify({ minLabelsPerSheet: 101, increasePercent: 10 }),
+        status: 'ACTIVE',
+      },
+      {
+        ruleCode: 'DIE_CUT_OVER_200_LABELS',
+        ruleName: 'Tăng giá bế khi trên 200 nhãn/tờ',
+        description: 'Nếu 1 tờ có trên 200 nhãn thì giá bế tăng 20%.',
+        configJson: JSON.stringify({ minLabelsPerSheet: 201, increasePercent: 20 }),
+        status: 'ACTIVE',
+      },
+      {
+        ruleCode: 'LAMINATION_RULE_BY_MATERIAL',
+        ruleName: 'Quy tắc cán màng theo chất liệu',
+        description: 'Decal giấy có thể không cán màng. Decal nhựa sữa tem lớn hơn 5cm đề xuất cán nhiệt, dưới 5cm đề xuất cán keo. Decal xi bạc, nhựa trong, 7 màu luôn đề xuất cán màng keo.',
+        configJson: JSON.stringify({
+          decalGiay: { allowNoLamination: true },
+          decalNhuaSua: { largeLabelGreaterThanCm: 5, largeLabelRecommended: 'THERMAL_GLOSS', smallLabelRecommended: 'ADHESIVE_GLOSS' },
+          decalXiBac: { recommended: 'ADHESIVE_GLOSS' },
+          decalNhuaTrong: { recommended: 'ADHESIVE_GLOSS' },
+          decal7Mau: { recommended: 'ADHESIVE_GLOSS' },
+        }),
+        status: 'ACTIVE',
+      },
+    ],
+  });
+
+  // 9. Seed FileHandlingFee (Phí xử lý file)
+  console.log('Tạo bảng phí xử lý file mẫu...');
+  await prisma.fileHandlingFee.createMany({
+    data: [
+      { minQuantity: 1,     maxQuantity: 500,   feeAmount: 20000,  note: 'Phí xử lý file cho đơn dưới 500 cái', status: 'ACTIVE' },
+      { minQuantity: 501,   maxQuantity: 1000,  feeAmount: 40000,  note: 'Phí xử lý file cho đơn 501-1000 cái', status: 'ACTIVE' },
+      { minQuantity: 1001,  maxQuantity: 5000,  feeAmount: 160000, note: 'Phí xử lý file cho đơn 1001-5000 cái', status: 'ACTIVE' },
+      { minQuantity: 5001,  maxQuantity: 10000, feeAmount: 300000, note: 'Phí xử lý file cho đơn 5001-10000 cái', status: 'ACTIVE' },
+      { minQuantity: 10001, maxQuantity: 30000, feeAmount: 500000, note: 'Phí xử lý file cho đơn 10001-30000 cái', status: 'ACTIVE' },
     ],
   });
 
