@@ -23,15 +23,19 @@ export function formatDate(date: Date | string | null | undefined): string {
 export function getRoleName(role: string): string {
   switch (role) {
     case 'ADMIN':
-      return 'Chủ doanh nghiệp / Admin';
-    case 'SALE':
-      return 'Nhân viên Sale';
+      return 'Chủ doanh nghiệp';
+    case 'MANAGER':
+      return 'Quản lý';
+    case 'SALES':
+      return 'Sale / CSKH';
     case 'DESIGNER':
-      return 'Nhân viên Thiết kế';
+      return 'Thiết kế';
     case 'PRODUCTION':
-      return 'Bộ phận Sản xuất';
+      return 'Sản xuất';
     case 'ACCOUNTANT':
-      return 'Kế toán tài chính';
+      return 'Kế toán';
+    case 'DELIVERY':
+      return 'Giao hàng';
     default:
       return role;
   }

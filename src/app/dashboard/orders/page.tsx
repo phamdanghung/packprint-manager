@@ -3,8 +3,18 @@ import Link from 'next/link';
 import { Search, ShoppingBag, PlusCircle, Filter, Download } from 'lucide-react';
 import { db } from '@/lib/db';
 import { formatVND, formatDate, getOrderStatusBadge } from '@/lib/utils';
+import { getCurrentUser } from '@/lib/auth';
+import Unauthorized from '@/components/unauthorized';
 
 export default async function OrdersPage() {
+  const user = await getCurrentUser();
+  if (!user) return null;
+
+  const allowedRoles = ['ADMIN', 'MANAGER', 'SALES', 'DESIGNER', 'PRODUCTION', 'ACCOUNTANT', 'DELIVERY'];
+  if (!allowedRoles.includes(user.role)) {
+    return <Unauthorized />;
+  }
+
   const orders = await db.order.findMany({
     include: {
       customer: true,

@@ -1,6 +1,7 @@
 'use server';
 
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
+import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { db } from './db';
 
@@ -10,11 +11,11 @@ export interface UserSession {
   id: string;
   email: string;
   name: string;
-  role: 'ADMIN' | 'SALE' | 'DESIGNER' | 'PRODUCTION' | 'ACCOUNTANT';
+  role: 'ADMIN' | 'MANAGER' | 'SALES' | 'DESIGNER' | 'PRODUCTION' | 'ACCOUNTANT' | 'DELIVERY';
 }
 
-function hashPassword(password: string): string {
-  return crypto.createHash('sha256').update(password).digest('hex');
+function hashToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex');
 }
 
 /**
@@ -26,30 +27,52 @@ export async function login(email: string, passwordPlain: string): Promise<{ suc
       where: { email },
     });
 
-    if (!user || !user.active) {
-      return { success: false, error: 'Tài khoản không tồn tại hoặc đã bị khóa.' };
+    if (!user) {
+      return { success: false, error: 'Tài khoản không tồn tại trên hệ thống.' };
     }
 
-    const hashed = hashPassword(passwordPlain);
-    if (user.passwordHash !== hashed) {
+    if (user.status === 'INACTIVE') {
+      return { success: false, error: 'Tài khoản đã bị khóa hoặc ngừng hoạt động.' };
+    }
+
+    const isMatch = bcrypt.compareSync(passwordPlain, user.passwordHash);
+    if (!isMatch) {
       return { success: false, error: 'Mật khẩu không chính xác.' };
     }
 
-    // Tạo session
-    const sessionData: UserSession = {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role as any,
-    };
+    // Sinh token ngẫu nhiên, dài và khó đoán
+    const sessionToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = hashToken(sessionToken);
 
-    // Encode thành base64 để lưu vào cookie
-    const serialized = Buffer.from(JSON.stringify(sessionData)).toString('base64');
+    // Lưu session vào database
+    const expiresAt = new Date(Date.now() + 60 * 60 * 24 * 7 * 1000); // 7 ngày
     
+    // Lấy user-agent và ip từ request headers nếu có
+    let userAgent: string | undefined = undefined;
+    let ipAddress: string | undefined = undefined;
+    try {
+      const headersList = await headers();
+      userAgent = headersList.get('user-agent') || undefined;
+      ipAddress = headersList.get('x-forwarded-for') || headersList.get('x-real-ip') || undefined;
+    } catch (e) {
+      // Bỏ qua nếu chạy trong ngữ cảnh không có headers (như build time)
+    }
+
+    await db.session.create({
+      data: {
+        userId: user.id,
+        tokenHash,
+        expiresAt,
+        userAgent,
+        ipAddress,
+      },
+    });
+
+    // Chỉ lưu sessionToken raw trong cookie
     const cookieStore = await cookies();
-    cookieStore.set(SESSION_COOKIE_NAME, serialized, {
+    cookieStore.set(SESSION_COOKIE_NAME, sessionToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: (process.env.NODE_ENV as string) === 'production',
       sameSite: 'lax',
       path: '/',
       maxAge: 60 * 60 * 24 * 7, // 7 ngày
@@ -59,20 +82,35 @@ export async function login(email: string, passwordPlain: string): Promise<{ suc
   } catch (error: any) {
     console.error('Lỗi đăng nhập:', error);
     const errMsg = error instanceof Error ? error.message : String(error);
-    return { success: false, error: `Lỗi kết nối CSDL: ${errMsg}` };
+    return { success: false, error: `Lỗi kết nối CSDL hoặc lỗi hệ thống: ${errMsg}` };
   }
 }
 
 /**
- * Đăng xuất người dùng, xóa cookie session
+ * Đăng xuất người dùng, xóa cookie session và revoke session trong database
  */
 export async function logout(): Promise<void> {
-  const cookieStore = await cookies();
-  cookieStore.delete(SESSION_COOKIE_NAME);
+  try {
+    const cookieStore = await cookies();
+    const cookie = cookieStore.get(SESSION_COOKIE_NAME);
+    
+    if (cookie && cookie.value) {
+      const tokenHash = hashToken(cookie.value);
+      
+      // Revoke hoặc xóa hẳn session khỏi database
+      await db.session.deleteMany({
+        where: { tokenHash },
+      });
+    }
+
+    cookieStore.delete(SESSION_COOKIE_NAME);
+  } catch (error) {
+    console.error('Lỗi đăng xuất:', error);
+  }
 }
 
 /**
- * Lấy thông tin user hiện tại từ cookie session
+ * Lấy thông tin user hiện tại bằng cách truy vấn database dựa trên sessionToken
  */
 export async function getCurrentUser(): Promise<UserSession | null> {
   try {
@@ -80,37 +118,66 @@ export async function getCurrentUser(): Promise<UserSession | null> {
     const cookie = cookieStore.get(SESSION_COOKIE_NAME);
     if (!cookie || !cookie.value) return null;
 
-    const decoded = Buffer.from(cookie.value, 'base64').toString('utf-8');
-    const user = JSON.parse(decoded) as UserSession;
-    return user;
+    const tokenHash = hashToken(cookie.value);
+
+    // Query session trong database
+    const session = await db.session.findUnique({
+      where: { tokenHash },
+      include: {
+        user: true,
+      },
+    });
+
+    // Kiểm tra session hợp lệ
+    if (!session || (session as any).revokedAt || session.expiresAt < new Date()) {
+      // Nếu session không hợp lệ nhưng vẫn còn cookie, xóa cookie và session thừa
+      if (session) {
+        await db.session.deleteMany({ where: { tokenHash } });
+      }
+      return null;
+    }
+
+    // Kiểm tra trạng thái hoạt động của User
+    const user = session.user;
+    if (!user || user.status === 'INACTIVE') {
+      // Thu hồi session
+      await db.session.deleteMany({ where: { tokenHash } });
+      return null;
+    }
+
+    // Trả về UserSession an toàn, loại bỏ hoàn toàn passwordHash
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role as any,
+    };
   } catch (error) {
     return null;
   }
 }
 
 /**
- * Server Action chuyển đổi vai trò nhanh dành cho mục đích DEMO hệ thống
+ * Server Action chuyển đổi vai trò nhanh dành cho mục đích DEMO hệ thống.
+ * QUAN TRỌNG: Server Action này được bảo vệ hai lớp:
+ *   1. UI layer: isDemoMode=false → component không render → không có event trigger
+ *   2. Server layer: NODE_ENV phải là 'development', mọi call trong production đều bị từ chối
  */
-export async function switchRoleDemo(newRole: 'ADMIN' | 'SALE' | 'DESIGNER' | 'PRODUCTION' | 'ACCOUNTANT'): Promise<boolean> {
+export async function switchRoleDemo(newRole: 'ADMIN' | 'MANAGER' | 'SALES' | 'DESIGNER' | 'PRODUCTION' | 'ACCOUNTANT' | 'DELIVERY'): Promise<boolean> {
+  // Lớp bảo vệ server: tuyệt đối từ chối trên production
+  if (process.env.NODE_ENV !== 'development') {
+    console.error('[SECURITY] switchRoleDemo bị từ chối: không phải môi trường development.');
+    return false;
+  }
+
   try {
     const currentUser = await getCurrentUser();
     if (!currentUser) return false;
 
-    // Cập nhật vai trò trong session hiện tại
-    const updatedSession: UserSession = {
-      ...currentUser,
-      role: newRole,
-    };
-
-    const serialized = Buffer.from(JSON.stringify(updatedSession)).toString('base64');
-    
-    const cookieStore = await cookies();
-    cookieStore.set(SESSION_COOKIE_NAME, serialized, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7,
+    // Chỉ cập nhật vai trò trong development
+    await db.user.update({
+      where: { id: currentUser.id },
+      data: { role: newRole },
     });
 
     return true;

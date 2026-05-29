@@ -11,28 +11,55 @@ datasource db {
 }
 
 model User {
-  id            String       @id @default(uuid())
-  email         String       @unique
-  passwordHash  String
-  name          String
-  role          String       // ADMIN, SALE, DESIGNER, PRODUCTION, ACCOUNTANT
-  active        Boolean      @default(true)
-  createdAt     DateTime     @default(now())
-  quotes        Quote[]
-  approvedFiles DesignFile[] @relation("FileApprover")
+  id               String       @id @default(uuid())
+  email            String       @unique
+  passwordHash     String
+  name             String
+  role             String       // ADMIN, MANAGER, SALES, DESIGNER, PRODUCTION, ACCOUNTANT, DELIVERY
+  status           String       @default("ACTIVE") // ACTIVE, INACTIVE
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  quotes           Quote[]
+  approvedFiles    DesignFile[] @relation("FileApprover")
+  sessions         Session[]
+  createdCustomers Customer[]   @relation("CustomerCreator")
+}
+
+model Session {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique // Băm SHA-256 của token
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  userAgent String?
+  ipAddress String?
+  revokedAt DateTime?
 }
 
 model Customer {
-  id          String   @id @default(uuid())
-  name        String
-  phone       String?
-  email       String?
-  address     String?
-  companyName String?
-  debtBalance Float    @default(0)
-  createdAt   DateTime @default(now())
-  quotes      Quote[]
-  orders      Order[]
+  id           String   @id @default(uuid())
+  customerCode String   @unique // KH-000001, KH-000002...
+  name         String
+  phone        String   @unique
+  zalo         String?
+  email        String?
+  address      String?
+  customerType String   @default("RETAIL") // RETAIL, COMPANY, AGENCY, FNB, COSMETIC, PHARMA, OTHER
+  source       String   @default("OTHER")  // FACEBOOK, ZALO, TIKTOK, GOOGLE, REFERRAL, WALK_IN, OTHER
+  taxCode      String?
+  companyName  String?
+  note         String?
+  tags         String?  // VIP, THAN_THIET, regular
+  status       String   @default("ACTIVE") // ACTIVE, INACTIVE
+  debtBalance  Float    @default(0)
+  createdById  String?
+  createdBy    User?    @relation("CustomerCreator", fields: [createdById], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  quotes       Quote[]
+  orders       Order[]
 }
 
 model Quote {

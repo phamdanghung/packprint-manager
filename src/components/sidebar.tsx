@@ -29,14 +29,14 @@ interface MenuItem {
 }
 
 const MENU_ITEMS: MenuItem[] = [
-  { name: 'Dashboard Tổng quan', href: '/dashboard', icon: LayoutDashboard, roles: ['ADMIN', 'SALE', 'DESIGNER', 'PRODUCTION', 'ACCOUNTANT'] },
-  { name: 'Khách hàng', href: '/dashboard/customers', icon: Users, roles: ['ADMIN', 'SALE'] },
-  { name: 'Báo giá', href: '/dashboard/quotes', icon: FileText, roles: ['ADMIN', 'SALE', 'ACCOUNTANT'] },
-  { name: 'Đơn hàng', href: '/dashboard/orders', icon: ShoppingBag, roles: ['ADMIN', 'SALE', 'DESIGNER', 'PRODUCTION', 'ACCOUNTANT'] },
-  { name: 'Duyệt file thiết kế', href: '/dashboard/design-approval', icon: FileCheck, roles: ['ADMIN', 'DESIGNER'] },
-  { name: 'Tiến độ sản xuất', href: '/dashboard/production', icon: Cpu, roles: ['ADMIN', 'PRODUCTION'] },
-  { name: 'Công nợ & Thu chi', href: '/dashboard/debt', icon: DollarSign, roles: ['ADMIN', 'ACCOUNTANT', 'SALE'] },
-  { name: 'Cấu hình bảng giá', href: '/dashboard/pricing-config', icon: Sliders, roles: ['ADMIN', 'ACCOUNTANT'] },
+  { name: 'Dashboard Tổng quan', href: '/dashboard', icon: LayoutDashboard, roles: ['ADMIN', 'MANAGER', 'SALES', 'DESIGNER', 'PRODUCTION', 'ACCOUNTANT', 'DELIVERY'] },
+  { name: 'Khách hàng', href: '/dashboard/customers', icon: Users, roles: ['ADMIN', 'MANAGER', 'SALES'] },
+  { name: 'Báo giá', href: '/dashboard/quotes', icon: FileText, roles: ['ADMIN', 'MANAGER', 'SALES', 'ACCOUNTANT'] },
+  { name: 'Đơn hàng', href: '/dashboard/orders', icon: ShoppingBag, roles: ['ADMIN', 'MANAGER', 'SALES', 'DESIGNER', 'PRODUCTION', 'ACCOUNTANT', 'DELIVERY'] },
+  { name: 'Duyệt file thiết kế', href: '/dashboard/design-approval', icon: FileCheck, roles: ['ADMIN', 'MANAGER', 'DESIGNER', 'SALES'] },
+  { name: 'Tiến độ sản xuất', href: '/dashboard/production', icon: Cpu, roles: ['ADMIN', 'MANAGER', 'PRODUCTION', 'DELIVERY'] },
+  { name: 'Công nợ & Thu chi', href: '/dashboard/payments', icon: DollarSign, roles: ['ADMIN', 'MANAGER', 'ACCOUNTANT'] },
+  { name: 'Cấu hình bảng giá', href: '/dashboard/pricing-config', icon: Sliders, roles: ['ADMIN', 'MANAGER', 'ACCOUNTANT'] },
 ];
 
 export default function Sidebar({ user }: SidebarProps) {

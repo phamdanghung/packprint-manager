@@ -100,19 +100,19 @@ export default async function DashboardPage() {
 
         {/* Quick action buttons based on user role */}
         <div className="flex flex-wrap gap-3 relative z-10">
-          {user.role === 'ADMIN' && (
+          {(user.role === 'ADMIN' || user.role === 'MANAGER') && (
             <>
               <Link href="/dashboard/quotes" className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-teal-500 hover:bg-teal-400 text-white shadow-md shadow-teal-500/10 active:scale-[0.98] transition-all cursor-pointer">
                 <PlusCircle className="h-4 w-4" />
                 <span>Tạo Báo giá nhanh</span>
               </Link>
-              <Link href="/dashboard/debt" className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 hover:text-white active:scale-[0.98] transition-all cursor-pointer">
+              <Link href="/dashboard/payments" className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 hover:text-white active:scale-[0.98] transition-all cursor-pointer">
                 <DollarSign className="h-4 w-4" />
                 <span>Báo cáo Tài chính</span>
               </Link>
             </>
           )}
-          {user.role === 'SALE' && (
+          {user.role === 'SALES' && (
             <Link href="/dashboard/quotes" className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-teal-500 hover:bg-teal-400 text-white shadow-md shadow-teal-500/10 active:scale-[0.98] transition-all cursor-pointer">
               <PlusCircle className="h-4 w-4" />
               <span>Tính giá & Tạo đơn mới</span>
@@ -131,9 +131,15 @@ export default async function DashboardPage() {
             </Link>
           )}
           {user.role === 'ACCOUNTANT' && (
-            <Link href="/dashboard/debt" className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-teal-500 hover:bg-teal-400 text-white shadow-md shadow-teal-500/10 active:scale-[0.98] transition-all cursor-pointer">
+            <Link href="/dashboard/payments" className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-teal-500 hover:bg-teal-400 text-white shadow-md shadow-teal-500/10 active:scale-[0.98] transition-all cursor-pointer">
               <UserCheck className="h-4 w-4" />
               <span>Duyệt Thanh toán nợ</span>
+            </Link>
+          )}
+          {user.role === 'DELIVERY' && (
+            <Link href="/dashboard/orders" className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-500/10 active:scale-[0.98] transition-all cursor-pointer">
+              <ShoppingBag className="h-4 w-4" />
+              <span>Đơn hàng cần giao</span>
             </Link>
           )}
         </div>

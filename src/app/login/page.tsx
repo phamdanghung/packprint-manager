@@ -6,11 +6,13 @@ import { Printer, ShieldAlert, CheckCircle2, User, Key, ArrowRight } from 'lucid
 import { login } from '@/lib/auth';
 
 const DEMO_ACCOUNTS = [
-  { role: 'ADMIN', name: 'Chủ doanh nghiệp / Admin', email: 'admin@inbaobi.com', pass: 'admin123', color: 'border-indigo-200 hover:border-indigo-400 bg-indigo-50/50 text-indigo-700 dark:bg-indigo-950/10 dark:text-indigo-400 dark:border-indigo-900/30' },
-  { role: 'SALE', name: 'Nhân viên Sale', email: 'sale@inbaobi.com', pass: 'sale123', color: 'border-teal-200 hover:border-teal-400 bg-teal-50/50 text-teal-700 dark:bg-teal-950/10 dark:text-teal-400 dark:border-teal-900/30' },
-  { role: 'DESIGNER', name: 'Nhân viên Thiết kế', email: 'design@inbaobi.com', pass: 'design123', color: 'border-purple-200 hover:border-purple-400 bg-purple-50/50 text-purple-700 dark:bg-purple-950/10 dark:text-purple-400 dark:border-purple-900/30' },
-  { role: 'PRODUCTION', name: 'Bộ phận Sản xuất', email: 'production@inbaobi.com', pass: 'production123', color: 'border-orange-200 hover:border-orange-400 bg-orange-50/50 text-orange-700 dark:bg-orange-950/10 dark:text-orange-400 dark:border-orange-900/30' },
-  { role: 'ACCOUNTANT', name: 'Kế toán tài chính', email: 'accountant@inbaobi.com', pass: 'accountant123', color: 'border-pink-200 hover:border-pink-400 bg-pink-50/50 text-pink-700 dark:bg-pink-950/10 dark:text-pink-400 dark:border-pink-900/30' },
+  { role: 'ADMIN', name: 'Chủ doanh nghiệp', email: 'admin@packprint.vn', pass: '123456', color: 'border-indigo-200 hover:border-indigo-400 bg-indigo-50/50 text-indigo-700 dark:bg-indigo-950/10 dark:text-indigo-400 dark:border-indigo-900/30' },
+  { role: 'MANAGER', name: 'Quản lý', email: 'manager@packprint.vn', pass: '123456', color: 'border-blue-200 hover:border-blue-400 bg-blue-50/50 text-blue-700 dark:bg-blue-950/10 dark:text-blue-400 dark:border-blue-900/30' },
+  { role: 'SALES', name: 'Sale / CSKH', email: 'sale@packprint.vn', pass: '123456', color: 'border-teal-200 hover:border-teal-400 bg-teal-50/50 text-teal-700 dark:bg-teal-950/10 dark:text-teal-400 dark:border-teal-900/30' },
+  { role: 'DESIGNER', name: 'Thiết kế', email: 'design@packprint.vn', pass: '123456', color: 'border-purple-200 hover:border-purple-400 bg-purple-50/50 text-purple-700 dark:bg-purple-950/10 dark:text-purple-400 dark:border-purple-900/30' },
+  { role: 'PRODUCTION', name: 'Sản xuất', email: 'production@packprint.vn', pass: '123456', color: 'border-orange-200 hover:border-orange-400 bg-orange-50/50 text-orange-700 dark:bg-orange-950/10 dark:text-orange-400 dark:border-orange-900/30' },
+  { role: 'ACCOUNTANT', name: 'Kế toán', email: 'accountant@packprint.vn', pass: '123456', color: 'border-pink-200 hover:border-pink-400 bg-pink-50/50 text-pink-700 dark:bg-pink-950/10 dark:text-pink-400 dark:border-pink-900/30' },
+  { role: 'DELIVERY', name: 'Giao hàng', email: 'delivery@packprint.vn', pass: '123456', color: 'border-emerald-200 hover:border-emerald-400 bg-emerald-50/50 text-emerald-700 dark:bg-emerald-950/10 dark:text-emerald-400 dark:border-emerald-900/30' },
 ];
 
 export default function LoginPage() {
@@ -122,7 +124,7 @@ export default function LoginPage() {
                   <input
                     className="w-full rounded-xl bg-slate-900/80 border border-slate-800 py-3 pl-11 pr-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500/80 transition-all"
                     id="email"
-                    placeholder="name@inbaobi.com"
+                    placeholder="name@packprint.vn"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}

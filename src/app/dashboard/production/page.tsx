@@ -2,8 +2,17 @@ import React from 'react';
 import { Cpu, Search, Calendar, User, CheckCircle2, Clock, AlertTriangle } from 'lucide-react';
 import { db } from '@/lib/db';
 import { formatDate } from '@/lib/utils';
+import { getCurrentUser } from '@/lib/auth';
+import Unauthorized from '@/components/unauthorized';
 
 export default async function ProductionPage() {
+  const user = await getCurrentUser();
+  if (!user) return null;
+
+  const allowedRoles = ['ADMIN', 'MANAGER', 'PRODUCTION', 'DELIVERY'];
+  if (!allowedRoles.includes(user.role)) {
+    return <Unauthorized />;
+  }
   const orders = await db.order.findMany({
     where: {
       status: {

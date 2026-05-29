@@ -2,8 +2,17 @@ import React from 'react';
 import { DollarSign, Search, Calendar, User, ArrowDownRight, CreditCard } from 'lucide-react';
 import { db } from '@/lib/db';
 import { formatVND, formatDate } from '@/lib/utils';
+import { getCurrentUser } from '@/lib/auth';
+import Unauthorized from '@/components/unauthorized';
 
-export default async function DebtPage() {
+export default async function PaymentsPage() {
+  const user = await getCurrentUser();
+  if (!user) return null;
+
+  const allowedRoles = ['ADMIN', 'MANAGER', 'ACCOUNTANT'];
+  if (!allowedRoles.includes(user.role)) {
+    return <Unauthorized />;
+  }
   const payments = await db.payment.findMany({
     include: {
       order: {

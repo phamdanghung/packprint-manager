@@ -2,8 +2,17 @@ import React from 'react';
 import { FileCheck, Search, Image, Check, X, Eye, ArrowUpRight } from 'lucide-react';
 import { db } from '@/lib/db';
 import { formatDate } from '@/lib/utils';
+import { getCurrentUser } from '@/lib/auth';
+import Unauthorized from '@/components/unauthorized';
 
 export default async function DesignApprovalPage() {
+  const user = await getCurrentUser();
+  if (!user) return null;
+
+  const allowedRoles = ['ADMIN', 'MANAGER', 'DESIGNER', 'SALES'];
+  if (!allowedRoles.includes(user.role)) {
+    return <Unauthorized />;
+  }
   const pendingDesignOrders = await db.order.findMany({
     where: {
       status: {

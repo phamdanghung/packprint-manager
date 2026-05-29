@@ -2,15 +2,22 @@
 
 import React from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { LogOut, User, RefreshCw, Layers } from 'lucide-react';
+import { LogOut, User, Layers } from 'lucide-react';
 import { UserSession, logout, switchRoleDemo } from '@/lib/auth';
 import { getRoleName } from '@/lib/utils';
 
 interface HeaderProps {
   user: UserSession;
+  /**
+   * Giá trị này được tính toán phía Server (layout.tsx) bằng cách kiểm tra
+   * process.env.NODE_ENV === 'development'. Server Component đảm bảo
+   * giá trị này luôn là false trên Vercel production (NODE_ENV = production).
+   * Client Component KHÔNG tự đọc process.env để tránh hydration issues.
+   */
+  isDemoMode: boolean;
 }
 
-export default function Header({ user }: HeaderProps) {
+export default function Header({ user, isDemoMode }: HeaderProps) {
   const router = useRouter();
   const pathname = usePathname();
 
@@ -21,11 +28,12 @@ export default function Header({ user }: HeaderProps) {
   };
 
   const handleRoleChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    // Guard: không cho phép gọi switchRoleDemo nếu prop isDemoMode = false
+    if (!isDemoMode) return;
     const newRole = e.target.value as any;
     const success = await switchRoleDemo(newRole);
     if (success) {
       router.refresh();
-      // Chờ nhẹ rồi reload cứng để các server component và middleware cập nhật menu mới
       setTimeout(() => {
         window.location.reload();
       }, 100);
@@ -40,7 +48,7 @@ export default function Header({ user }: HeaderProps) {
     if (pathname.includes('/orders')) return 'Đơn hàng';
     if (pathname.includes('/design-approval')) return 'Duyệt file thiết kế';
     if (pathname.includes('/production')) return 'Tiến độ sản xuất';
-    if (pathname.includes('/debt')) return 'Công nợ & Thu chi';
+    if (pathname.includes('/payments')) return 'Công nợ & Thu chi';
     if (pathname.includes('/pricing-config')) return 'Cấu hình bảng giá';
     return 'Hệ thống Quản lý';
   };
@@ -54,26 +62,31 @@ export default function Header({ user }: HeaderProps) {
         </h2>
       </div>
 
-      {/* Controls: Role Switcher & User Profile */}
+      {/* Controls: Role Switcher (Dev only) & User Profile */}
       <div className="flex items-center gap-4">
-        {/* DEMO ROLE SWITCHER */}
-        <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-xl">
-          <Layers className="h-4 w-4 text-amber-500 flex-shrink-0" />
-          <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase hidden sm:inline">
-            Bộ chuyển vai DEMO:
-          </span>
-          <select
-            value={user.role}
-            onChange={handleRoleChange}
-            className="bg-transparent border-none text-xs font-semibold text-amber-800 dark:text-amber-300 focus:outline-none cursor-pointer pr-1"
-          >
-            <option value="ADMIN" className="bg-slate-900 text-white font-semibold">ADMIN (Chủ doanh nghiệp)</option>
-            <option value="SALE" className="bg-slate-900 text-white font-semibold">SALE (Kinh doanh)</option>
-            <option value="DESIGNER" className="bg-slate-900 text-white font-semibold">DESIGNER (Thiết kế)</option>
-            <option value="PRODUCTION" className="bg-slate-900 text-white font-semibold">PRODUCTION (Xưởng sản xuất)</option>
-            <option value="ACCOUNTANT" className="bg-slate-900 text-white font-semibold">ACCOUNTANT (Kế toán)</option>
-          </select>
-        </div>
+
+        {/* DEMO ROLE SWITCHER — chỉ render khi isDemoMode=true (development server) */}
+        {isDemoMode && (
+          <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-xl">
+            <Layers className="h-4 w-4 text-amber-500 flex-shrink-0" />
+            <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase hidden sm:inline">
+              Bộ chuyển vai DEMO:
+            </span>
+            <select
+              value={user.role}
+              onChange={handleRoleChange}
+              className="bg-transparent border-none text-xs font-semibold text-amber-800 dark:text-amber-300 focus:outline-none cursor-pointer pr-1"
+            >
+              <option value="ADMIN" className="bg-slate-900 text-white font-semibold">ADMIN (Chủ doanh nghiệp)</option>
+              <option value="MANAGER" className="bg-slate-900 text-white font-semibold">MANAGER (Quản lý)</option>
+              <option value="SALES" className="bg-slate-900 text-white font-semibold">SALES (Sale / CSKH)</option>
+              <option value="DESIGNER" className="bg-slate-900 text-white font-semibold">DESIGNER (Thiết kế)</option>
+              <option value="PRODUCTION" className="bg-slate-900 text-white font-semibold">PRODUCTION (Sản xuất)</option>
+              <option value="ACCOUNTANT" className="bg-slate-900 text-white font-semibold">ACCOUNTANT (Kế toán)</option>
+              <option value="DELIVERY" className="bg-slate-900 text-white font-semibold">DELIVERY (Giao hàng)</option>
+            </select>
+          </div>
+        )}
 
         {/* User Block */}
         <div className="flex items-center gap-3 pl-4 border-l border-slate-200 dark:border-slate-800">

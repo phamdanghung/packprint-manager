@@ -2,8 +2,17 @@ import React from 'react';
 import { Sliders, Search, Edit2, PlusCircle, Paperclip, CheckSquare, Layers } from 'lucide-react';
 import { db } from '@/lib/db';
 import { formatVND, formatDate } from '@/lib/utils';
+import { getCurrentUser } from '@/lib/auth';
+import Unauthorized from '@/components/unauthorized';
 
 export default async function PricingConfigPage() {
+  const user = await getCurrentUser();
+  if (!user) return null;
+
+  const allowedRoles = ['ADMIN', 'MANAGER', 'ACCOUNTANT'];
+  if (!allowedRoles.includes(user.role)) {
+    return <Unauthorized />;
+  }
   const configs = await db.priceRule.findMany({
     orderBy: {
       category: 'asc'

@@ -2,8 +2,18 @@ import React from 'react';
 import { PlusCircle, Search, FileText, CheckCircle2, AlertCircle, Clock, ShoppingBag } from 'lucide-react';
 import { db } from '@/lib/db';
 import { formatVND, formatDate } from '@/lib/utils';
+import { getCurrentUser } from '@/lib/auth';
+import Unauthorized from '@/components/unauthorized';
 
 export default async function QuotesPage() {
+  const user = await getCurrentUser();
+  if (!user) return null;
+
+  const allowedRoles = ['ADMIN', 'MANAGER', 'SALES', 'ACCOUNTANT'];
+  if (!allowedRoles.includes(user.role)) {
+    return <Unauthorized />;
+  }
+
   const quotes = await db.quote.findMany({
     include: {
       customer: true,
