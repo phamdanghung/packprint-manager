@@ -61,6 +61,9 @@ export async function getCustomers(filters: CustomerFilter = {}) {
       include: {
         createdBy: {
           select: { name: true, role: true }
+        },
+        assignedSales: {
+          select: { name: true }
         }
       }
     });
@@ -87,6 +90,9 @@ export async function getCustomerById(id: string) {
         createdBy: {
           select: { name: true, role: true }
         },
+        assignedSales: {
+          select: { name: true, role: true }
+        },
         quotes: {
           orderBy: { createdAt: 'desc' },
           include: {
@@ -96,7 +102,8 @@ export async function getCustomerById(id: string) {
         orders: {
           orderBy: { createdAt: 'desc' },
           include: {
-            productionSteps: true
+            designFiles: true,
+            productionJob: { include: { steps: true } }
           }
         }
       }
@@ -156,10 +163,16 @@ export async function createCustomer(formData: {
   companyName?: string;
   note?: string;
   tags?: string;
+  assignedSalesId?: string;
 }) {
   const user = await getCurrentUser();
   if (!user || !ALLOWED_ROLES_MUTATE.includes(user.role)) {
     return { success: false, error: 'Bạn không có quyền tạo khách hàng mới.' };
+  }
+
+  let finalAssignedSalesId = formData.assignedSalesId || null;
+  if (user.role === 'SALES') {
+    finalAssignedSalesId = user.id;
   }
 
   if (!formData.name || !formData.phone) {
@@ -200,6 +213,7 @@ export async function createCustomer(formData: {
           tags: formData.tags || null,
           status: 'ACTIVE',
           createdById: user.id,
+          assignedSalesId: finalAssignedSalesId,
         }
       });
     });
@@ -229,11 +243,17 @@ export async function updateCustomer(
     companyName?: string;
     note?: string;
     tags?: string;
+    assignedSalesId?: string;
   }
 ) {
   const user = await getCurrentUser();
   if (!user || !ALLOWED_ROLES_MUTATE.includes(user.role)) {
     return { success: false, error: 'Bạn không có quyền chỉnh sửa thông tin khách hàng.' };
+  }
+
+  let finalAssignedSalesId = formData.assignedSalesId || null;
+  if (user.role === 'SALES') {
+    finalAssignedSalesId = user.id; // Force own ID
   }
 
   if (!formData.name || !formData.phone) {
@@ -279,6 +299,7 @@ export async function updateCustomer(
         companyName: formData.companyName || null,
         note: formData.note || null,
         tags: formData.tags || null,
+        ...(user.role !== 'SALES' || finalAssignedSalesId ? { assignedSalesId: finalAssignedSalesId } : {})
       }
     });
 

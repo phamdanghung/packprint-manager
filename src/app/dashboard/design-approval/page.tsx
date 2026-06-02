@@ -47,7 +47,7 @@ export default async function DesignApprovalPage() {
                   <div key={o.id} className="p-4 border border-slate-100 dark:border-slate-800 rounded-2xl flex flex-col sm:flex-row justify-between sm:items-center gap-4 hover:border-indigo-500/20 hover:bg-slate-50/50 dark:hover:bg-slate-900/40 transition-all group">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-slate-800 dark:text-white">{o.orderNumber}</span>
+                        <span className="font-bold text-slate-800 dark:text-white">{o.orderCode}</span>
                         <span className="text-[10px] bg-indigo-50 text-indigo-700 dark:bg-indigo-950/20 dark:text-indigo-400 px-2 py-0.5 rounded-full font-bold uppercase">
                           {o.status === 'DESIGN_APPROVED' ? 'Đã duyệt' : 'Chờ file'}
                         </span>

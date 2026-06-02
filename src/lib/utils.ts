@@ -3,16 +3,12 @@ export function cn(...classes: (string | undefined | null | boolean)[]) {
 }
 
 export function formatCurrencyVND(amount: number): string {
-  if (amount === 0) return '0 đ';
-  // Use toLocaleString to ensure correct thousands separators without currency symbol issues
-  return amount.toLocaleString('vi-VN', { maximumFractionDigits: 0 }) + ' đ';
+  if (!amount) return '0 đ';
+  return new Intl.NumberFormat('vi-VN').format(Math.round(amount)) + ' đ';
 }
 
 export function formatVND(value: number): string {
-  return new Intl.NumberFormat('vi-VN', {
-    style: 'currency',
-    currency: 'VND',
-  }).format(value);
+  return formatCurrencyVND(value);
 }
 
 export function formatDate(date: Date | string | null | undefined): string {
@@ -49,21 +45,76 @@ export function getRoleName(role: string): string {
 
 export function getOrderStatusBadge(status: string): { label: string; bg: string; text: string } {
   switch (status) {
-    case 'PENDING':
-      return { label: 'Chờ xử lý', bg: 'bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30', text: 'text-amber-700 dark:text-amber-400' };
-    case 'DESIGNING':
-      return { label: 'Đang thiết kế', bg: 'bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/30', text: 'text-blue-700 dark:text-blue-400' };
-    case 'DESIGN_APPROVED':
-      return { label: 'Đã duyệt file', bg: 'bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-900/30', text: 'text-indigo-700 dark:text-indigo-400' };
-    case 'PRODUCING':
-      return { label: 'Đang sản xuất', bg: 'bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900/30', text: 'text-orange-700 dark:text-orange-400' };
+    case 'WAITING_APPROVAL':
+      return { label: 'Chờ duyệt', bg: 'bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30', text: 'text-amber-700 dark:text-amber-400' };
+    case 'WAITING_DESIGN':
+      return { label: 'Chờ thiết kế', bg: 'bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/30', text: 'text-blue-700 dark:text-blue-400' };
+    case 'READY_FOR_PRINT':
+      return { label: 'Sẵn sàng in', bg: 'bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-900/30', text: 'text-indigo-700 dark:text-indigo-400' };
+    case 'PRINTING':
+      return { label: 'Đang in', bg: 'bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900/30', text: 'text-orange-700 dark:text-orange-400' };
+    case 'FINISHING':
+      return { label: 'Hoàn thiện', bg: 'bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-900/30', text: 'text-sky-700 dark:text-sky-400' };
+    case 'QC':
+      return { label: 'Kiểm tra chất lượng', bg: 'bg-fuchsia-50 dark:bg-fuchsia-950/20 border border-fuchsia-200 dark:border-fuchsia-900/30', text: 'text-fuchsia-700 dark:text-fuchsia-400' };
+    case 'READY_FOR_DELIVERY':
+      return { label: 'Chờ giao hàng', bg: 'bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900/30', text: 'text-purple-700 dark:text-purple-400' };
+    case 'DELIVERING':
+      return { label: 'Đang giao', bg: 'bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-900/30', text: 'text-sky-700 dark:text-sky-400' };
     case 'COMPLETED':
       return { label: 'Hoàn thành', bg: 'bg-teal-50 dark:bg-teal-950/20 border border-teal-200 dark:border-teal-900/30', text: 'text-teal-700 dark:text-teal-400' };
-    case 'DELIVERED':
-      return { label: 'Đã giao hàng', bg: 'bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/30', text: 'text-emerald-700 dark:text-emerald-400' };
     case 'CANCELLED':
       return { label: 'Đã hủy', bg: 'bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/30', text: 'text-rose-700 dark:text-rose-400' };
+    // Fallbacks for older statuses
+    case 'PENDING':
+      return { label: 'Chờ xử lý', bg: 'bg-slate-100 border border-slate-200', text: 'text-slate-700' };
+    case 'DESIGNING':
+      return { label: 'Đang thiết kế', bg: 'bg-slate-100 border border-slate-200', text: 'text-slate-700' };
+    case 'DESIGN_APPROVED':
+      return { label: 'Đã duyệt file', bg: 'bg-slate-100 border border-slate-200', text: 'text-slate-700' };
+    case 'PRODUCING':
+      return { label: 'Đang sản xuất', bg: 'bg-slate-100 border border-slate-200', text: 'text-slate-700' };
+    case 'DELIVERED':
+      return { label: 'Đã giao hàng', bg: 'bg-slate-100 border border-slate-200', text: 'text-slate-700' };
     default:
       return { label: status, bg: 'bg-slate-100 border border-slate-200', text: 'text-slate-700' };
+  }
+}
+
+export function getProductionStatusBadge(status: string): { label: string; bg: string; text: string } {
+  switch (status) {
+    case 'READY_FOR_PRINT':
+      return { label: 'Sẵn sàng in', bg: 'bg-indigo-50 border border-indigo-200', text: 'text-indigo-700' };
+    case 'PRINTING':
+      return { label: 'Đang in', bg: 'bg-blue-50 border border-blue-200', text: 'text-blue-700' };
+    case 'LAMINATING':
+      return { label: 'Cán màng', bg: 'bg-sky-50 border border-sky-200', text: 'text-sky-700' };
+    case 'DIE_CUTTING':
+      return { label: 'Bế', bg: 'bg-cyan-50 border border-cyan-200', text: 'text-cyan-700' };
+    case 'QC':
+      return { label: 'QC', bg: 'bg-teal-50 border border-teal-200', text: 'text-teal-700' };
+    case 'PACKING':
+      return { label: 'Đóng gói', bg: 'bg-orange-50 border border-orange-200', text: 'text-orange-700' };
+    case 'READY_FOR_DELIVERY':
+      return { label: 'Chờ giao hàng', bg: 'bg-purple-50 border border-purple-200', text: 'text-purple-700' };
+    case 'ON_HOLD':
+      return { label: 'Tạm dừng', bg: 'bg-amber-50 border border-amber-200', text: 'text-amber-700' };
+    case 'REWORK':
+      return { label: 'Cần xử lý lại', bg: 'bg-rose-50 border border-rose-200', text: 'text-rose-700' };
+    default:
+      return { label: status, bg: 'bg-slate-100 border border-slate-200', text: 'text-slate-700' };
+  }
+}
+
+export function getPaymentStatusBadge(status: string): { label: string; bg: string; text: string } {
+  switch (status) {
+    case 'PENDING':
+      return { label: 'Chờ xác nhận', bg: 'bg-amber-100', text: 'text-amber-700' };
+    case 'CONFIRMED':
+      return { label: 'Đã xác nhận', bg: 'bg-emerald-100', text: 'text-emerald-700' };
+    case 'CANCELLED':
+      return { label: 'Đã hủy', bg: 'bg-slate-200', text: 'text-slate-700' };
+    default:
+      return { label: status, bg: 'bg-slate-100', text: 'text-slate-700' };
   }
 }

@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,173 +8,552 @@ datasource db {
 }
 
 model User {
-  id               String       @id @default(uuid())
-  email            String       @unique
-  passwordHash     String
-  name             String
-  role             String       // ADMIN, MANAGER, SALES, DESIGNER, PRODUCTION, ACCOUNTANT, DELIVERY
-  status           String       @default("ACTIVE") // ACTIVE, INACTIVE
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
-  quotes           Quote[]
-  approvedFiles    DesignFile[] @relation("FileApprover")
-  sessions         Session[]
-  createdCustomers Customer[]   @relation("CustomerCreator")
+  id                      String           @id @default(uuid())
+  email                   String           @unique
+  passwordHash            String
+  name                    String
+  role                    String
+  status                  String           @default("ACTIVE")
+  department              String?
+  phone                   String?
+  lastLoginAt             DateTime?
+  deactivatedAt           DateTime?
+  deactivatedById         String?
+  createdAt               DateTime         @default(now())
+  updatedAt               DateTime         @updatedAt
+  createdCustomers        Customer[]       @relation("CustomerCreator")
+  assignedDeliveryJobs    DeliveryJob[]    @relation("JobAssignedDelivery")
+  deliveryLogs            DeliveryLog[]    @relation("DeliveryLogActor")
+  lockedFiles             DesignFile[]     @relation("FileLocker")
+  approvedFiles           DesignFile[]     @relation("FileApprover")
+  assignedFiles           DesignFile[]     @relation("FileDesigner")
+  uploadedFiles           DesignFile[]     @relation("FileUploader")
+  fileLogs                DesignFileLog[]  @relation("LogActor")
+  ordersCreated           Order[]          @relation("OrderCreator")
+  paymentsCreated         Payment[]        @relation("PaymentCreator")
+  paymentsReceived        Payment[]        @relation("PaymentReceiver")
+  paymentLogs             PaymentLog[]     @relation("PaymentLogActor")
+  productionJobsAssigned  ProductionJob[]  @relation("JobAssignedUser")
+  productionLogs          ProductionLog[]  @relation("ProductionLogActor")
+  productionStepsAssigned ProductionStep[] @relation("StepAssignedUser")
+  quotes                  Quote[]
+  sessions                Session[]
+
+  assignedCustomers Customer[] @relation("CustomerAssignedSales")
+  assignedQuotes    Quote[]    @relation("QuoteAssignedSales")
+  assignedOrders    Order[]    @relation("OrderAssignedSales")
+
+  // CRM
+  customerNotes      CustomerNote[]
+  interactions       CustomerInteraction[]
+  assignedFollowUps  CustomerFollowUp[]    @relation("FollowUpAssignedTo")
+  createdFollowUps   CustomerFollowUp[]    @relation("FollowUpCreatedBy")
+  completedFollowUps CustomerFollowUp[]    @relation("FollowUpCompletedBy")
+  assignedTasks      TaskItem[]            @relation("TaskAssignedTo")
+  resolvedTasks      TaskItem[]            @relation("TaskResolvedBy")
+  createdTasks       TaskItem[]            @relation("TaskCreatedBy")
+  taskLogs           TaskLog[]             @relation("TaskLogActor")
+
+  deactivatedBy    User?  @relation("UserDeactivator", fields: [deactivatedById], references: [id])
+  deactivatedUsers User[] @relation("UserDeactivator")
+
+  // Inventory
+  inventoryItemsCreated InventoryItem[]          @relation("ItemCreatedBy")
+  inventoryItemsUpdated InventoryItem[]          @relation("ItemUpdatedBy")
+  inventoryTxCreated    InventoryTransaction[]   @relation("InventoryTxCreatedBy")
+  inventoryResCreated   InventoryReservation[]   @relation("InventoryResCreatedBy")
+  assignedPrintJobs     PrintQueueItem[]         @relation("PrintJobAssignedTo")
+  printQueueLogs        PrintQueueLog[]          @relation("PrintQueueLogActor")
+  assignedOperations    ProductionOperation[]    @relation("OperationAssignedUser")
+  operationLogs         ProductionOperationLog[] @relation("OperationLogActor")
 }
 
 model Session {
   id        String    @id @default(uuid())
   userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tokenHash String    @unique // Băm SHA-256 của token
+  tokenHash String    @unique
   expiresAt DateTime
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   userAgent String?
   ipAddress String?
   revokedAt DateTime?
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Customer {
-  id           String   @id @default(uuid())
-  customerCode String   @unique // KH-000001, KH-000002...
-  name         String
-  phone        String   @unique
-  zalo         String?
-  email        String?
-  address      String?
-  customerType String   @default("RETAIL") // RETAIL, COMPANY, AGENCY, FNB, COSMETIC, PHARMA, OTHER
-  source       String   @default("OTHER")  // FACEBOOK, ZALO, TIKTOK, GOOGLE, REFERRAL, WALK_IN, OTHER
-  taxCode      String?
-  companyName  String?
-  note         String?
-  tags         String?  // VIP, THAN_THIET, regular
-  status       String   @default("ACTIVE") // ACTIVE, INACTIVE
-  debtBalance  Float    @default(0)
-  createdById  String?
-  createdBy    User?    @relation("CustomerCreator", fields: [createdById], references: [id])
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  quotes       Quote[]
-  orders       Order[]
+  id                    String                 @id @default(uuid())
+  customerCode          String                 @unique
+  name                  String
+  phone                 String                 @unique
+  zalo                  String?
+  email                 String?
+  address               String?
+  customerType          String                 @default("RETAIL")
+  source                String                 @default("OTHER")
+  segment               String?
+  crmStatus             String                 @default("LEAD")
+  taxCode               String?
+  companyName           String?
+  note                  String?
+  tags                  String? // JSON stringified array
+  status                String                 @default("ACTIVE")
+  debtBalance           Float                  @default(0)
+  priority              String                 @default("NORMAL")
+  lastContactAt         DateTime?
+  nextFollowUpAt        DateTime?
+  createdById           String?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  createdBy             User?                  @relation("CustomerCreator", fields: [createdById], references: [id])
+  assignedSalesId       String?
+  assignedSales         User?                  @relation("CustomerAssignedSales", fields: [assignedSalesId], references: [id])
+  orders                Order[]
+  payments              Payment[]
+  quotes                Quote[]
+  tasks                 TaskItem[]
+  notes                 CustomerNote[]
+  interactions          CustomerInteraction[]
+  followUps             CustomerFollowUp[]
+  inventoryTransactions InventoryTransaction[]
+  inventoryReservations InventoryReservation[]
+
+  @@index([assignedSalesId])
+  @@index([source])
+  @@index([segment])
+  @@index([crmStatus])
+  @@index([nextFollowUpAt])
+  @@index([lastContactAt])
+}
+
+model CustomerNote {
+  id         String    @id @default(cuid())
+  customerId String
+  authorId   String
+  type       String
+  content    String
+  isPinned   Boolean   @default(false)
+  isPrivate  Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  author   User     @relation(fields: [authorId], references: [id])
+
+  @@index([customerId])
+  @@index([authorId])
+  @@index([type])
+  @@index([createdAt])
+  @@index([deletedAt])
+}
+
+model CustomerInteraction {
+  id             String    @id @default(cuid())
+  customerId     String
+  actorId        String
+  channel        String
+  direction      String
+  title          String
+  content        String?
+  outcome        String?
+  contactedAt    DateTime
+  nextFollowUpAt DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  actor    User     @relation(fields: [actorId], references: [id])
+
+  @@index([customerId])
+  @@index([actorId])
+  @@index([channel])
+  @@index([contactedAt])
+  @@index([nextFollowUpAt])
+}
+
+model CustomerFollowUp {
+  id            String    @id @default(cuid())
+  customerId    String
+  assignedToId  String
+  createdById   String
+  title         String
+  note          String?
+  dueAt         DateTime
+  status        String
+  priority      String
+  completedAt   DateTime?
+  completedById String?
+  resultNote    String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  assignedTo  User     @relation("FollowUpAssignedTo", fields: [assignedToId], references: [id])
+  createdBy   User     @relation("FollowUpCreatedBy", fields: [createdById], references: [id])
+  completedBy User?    @relation("FollowUpCompletedBy", fields: [completedById], references: [id])
+
+  @@index([customerId])
+  @@index([assignedToId])
+  @@index([status])
+  @@index([dueAt])
+  @@index([priority])
 }
 
 model Quote {
-  id           String      @id @default(uuid())
-  quoteNumber  String      @unique
-  customerId   String
-  customer     Customer    @relation(fields: [customerId], references: [id])
-  totalAmount  Float
-  status       String      // DRAFT, SENT, APPROVED, REJECTED
-  notes        String?
-  createdById  String
-  createdBy    User        @relation(fields: [createdById], references: [id])
-  createdAt    DateTime    @default(now())
-  items        QuoteItem[]
-  orders       Order[]
+  id              String      @id @default(uuid())
+  quoteNumber     String      @unique
+  customerId      String
+  status          String
+  subtotal        Float       @default(0)
+  vatRate         Float       @default(8)
+  vatAmount       Float       @default(0)
+  shippingFee     Float       @default(0)
+  totalAmount     Float       @default(0)
+  totalCost       Float       @default(0)
+  grossProfit     Float       @default(0)
+  grossProfitRate Float       @default(0)
+  notes           String?
+  internalNote    String?
+  createdById     String
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  orders          Order[]
+  createdBy       User        @relation(fields: [createdById], references: [id])
+  customer        Customer    @relation(fields: [customerId], references: [id])
+  items           QuoteItem[]
+  assignedSalesId String?
+  assignedSales   User?       @relation("QuoteAssignedSales", fields: [assignedSalesId], references: [id])
+
+  @@index([assignedSalesId])
 }
 
 model QuoteItem {
-  id       String @id @default(uuid())
-  quoteId  String
-  quote    Quote  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
-  name     String // Tên sản phẩm, ví dụ: Hộp giấy Couche
-  qty      Int    // Số lượng in
-  size     String // Kích thước
-  paper    String // Chất liệu giấy
-  print    String // Quy cách in
-  process  String // Quy cách gia công
-  price    Float  // Đơn giá sản phẩm
+  id                         String  @id @default(uuid())
+  quoteId                    String
+  productType                String
+  name                       String
+  materialId                 String
+  labelShape                 String
+  widthCm                    Float
+  heightCm                   Float
+  diameterCm                 Float?
+  quantity                   Int
+  labelsPerSheet             Int
+  printSheets                Int
+  wasteSheets                Int
+  totalSheets                Int
+  laminationId               String?
+  dieCutType                 String
+  materialPricePerSheet      Float
+  materialDiscountPercent    Float
+  finalMaterialPricePerSheet Float
+  laminationPricePerSheet    Float
+  dieCutPricePerSheet        Float
+  printingPricePerSheet      Float
+  fileHandlingFee            Float
+  otherFee                   Float
+  materialCost               Float
+  laminationCost             Float
+  dieCutCost                 Float
+  printingCost               Float
+  costAmount                 Float
+  profitRate                 Float
+  saleAmount                 Float
+  pricingDetails             String?
+  layoutDetails              String?
+  calculationNote            String?
+  warningNote                String?
+  quote                      Quote   @relation(fields: [quoteId], references: [id], onDelete: Cascade)
 }
 
 model Order {
-  id              String           @id @default(uuid())
-  orderNumber     String           @unique
-  quoteId         String?
-  quote           Quote?           @relation(fields: [quoteId], references: [id])
-  customerId      String
-  customer        Customer         @relation(fields: [customerId], references: [id])
-  status          String           // PENDING, DESIGNING, DESIGN_APPROVED, PRODUCING, COMPLETED, DELIVERED, CANCELLED
-  deliveryDate    DateTime
-  totalAmount     Float
-  paidAmount      Float            @default(0)
-  debtAmount      Float            @default(0)
-  estimatedCost   Float            // Chi phí sản xuất dự toán
-  estimatedProfit Float            // Lợi nhuận ước tính
-  profitMargin    Float            // Tỷ suất lợi nhuận (%)
-  notes           String?
-  createdAt       DateTime         @default(now())
-  items           OrderItem[]
-  designFiles     DesignFile[]
-  productionSteps ProductionStep[]
-  payments        Payment[]
+  id                    String                 @id @default(uuid())
+  orderCode             String                 @unique
+  quoteId               String?
+  customerId            String
+  status                String
+  paymentStatus         String                 @default("UNPAID")
+  productionStatus      String?
+  deliveryStatus        String?
+  subtotal              Float                  @default(0)
+  vatRate               Float                  @default(8)
+  vatAmount             Float                  @default(0)
+  shippingFee           Float                  @default(0)
+  totalAmount           Float                  @default(0)
+  totalCost             Float                  @default(0)
+  grossProfit           Float                  @default(0)
+  grossProfitRate       Float                  @default(0)
+  depositAmount         Float                  @default(0)
+  paidAmount            Float                  @default(0)
+  debtAmount            Float                  @default(0)
+  deliveryAddress       String?
+  deliveryNote          String?
+  dueDate               DateTime?
+  note                  String?
+  internalNote          String?
+  createdById           String?
+  assignedDesignerId    String?
+  assignedProductionId  String?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  deliveryJob           DeliveryJob?
+  designFiles           DesignFile[]
+  createdBy             User?                  @relation("OrderCreator", fields: [createdById], references: [id])
+  customer              Customer               @relation(fields: [customerId], references: [id])
+  quote                 Quote?                 @relation(fields: [quoteId], references: [id])
+  items                 OrderItem[]
+  payments              Payment[]
+  productionJob         ProductionJob?
+  assignedSalesId       String?
+  assignedSales         User?                  @relation("OrderAssignedSales", fields: [assignedSalesId], references: [id])
+  tasks                 TaskItem[]
+  inventoryTransactions InventoryTransaction[]
+  inventoryReservations InventoryReservation[]
+  printQueueItems       PrintQueueItem[]
+
+  @@index([assignedSalesId])
 }
 
 model OrderItem {
-  id      String @id @default(uuid())
-  orderId String
-  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  name    String
-  qty     Int
-  size    String
-  paper   String
-  print   String
-  process String
-  price   Float
+  id                   String                @id @default(uuid())
+  orderId              String
+  quoteItemId          String?
+  productType          String
+  name                 String
+  materialId           String
+  labelShape           String
+  widthCm              Float
+  heightCm             Float
+  diameterCm           Float?
+  quantity             Int
+  labelsPerSheet       Int
+  printSheets          Int
+  wasteSheets          Int
+  totalSheets          Int
+  laminationId         String?
+  dieCutType           String
+  materialCost         Float
+  laminationCost       Float
+  dieCutCost           Float
+  printingCost         Float
+  fileHandlingFee      Float
+  otherFee             Float
+  costAmount           Float
+  saleAmount           Float
+  pricingDetails       String?
+  layoutDetails        String?
+  productionNote       String?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  order                Order                 @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productionOperations ProductionOperation[]
 }
 
 model DesignFile {
-  id            String    @id @default(uuid())
-  orderId       String
-  order         Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  fileName      String    // Tên file final
-  fileUrl       String    // Đường dẫn file
-  uploadedAt    DateTime  @default(now())
-  approvedById  String?
-  approvedBy    User?     @relation("FileApprover", fields: [approvedById], references: [id])
-  approvedAt    DateTime?
+  id                 String           @id @default(uuid())
+  orderId            String
+  uploadedById       String
+  assignedDesignerId String?
+  fileCode           String           @unique
+  fileName           String
+  originalFileName   String?
+  fileUrl            String
+  fileType           String
+  fileSize           Int?
+  versionNumber      Int              @default(1)
+  filePurpose        String
+  status             String
+  isFinal            Boolean          @default(false)
+  isLocked           Boolean          @default(false)
+  customerFeedback   String?
+  saleNote           String?
+  designerNote       String?
+  productionNote     String?
+  approvedAt         DateTime?
+  approvedById       String?
+  lockedAt           DateTime?
+  lockedById         String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  lockedBy           User?            @relation("FileLocker", fields: [lockedById], references: [id])
+  approvedBy         User?            @relation("FileApprover", fields: [approvedById], references: [id])
+  assignedDesigner   User?            @relation("FileDesigner", fields: [assignedDesignerId], references: [id])
+  uploadedBy         User             @relation("FileUploader", fields: [uploadedById], references: [id])
+  order              Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  logs               DesignFileLog[]
+  printQueueItems    PrintQueueItem[]
+}
+
+model DesignFileLog {
+  id           String     @id @default(uuid())
+  designFileId String
+  orderId      String
+  actorId      String
+  actionType   String
+  fromStatus   String?
+  toStatus     String?
+  note         String?
+  createdAt    DateTime   @default(now())
+  actor        User       @relation("LogActor", fields: [actorId], references: [id])
+  designFile   DesignFile @relation(fields: [designFileId], references: [id], onDelete: Cascade)
+}
+
+model ProductionJob {
+  id                    String                 @id @default(uuid())
+  orderId               String                 @unique
+  jobCode               String                 @unique
+  status                String
+  priority              String                 @default("NORMAL")
+  assignedProductionId  String?
+  startedAt             DateTime?
+  completedAt           DateTime?
+  dueDate               DateTime?
+  note                  String?
+  internalNote          String?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  assignedTo            User?                  @relation("JobAssignedUser", fields: [assignedProductionId], references: [id])
+  order                 Order                  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  logs                  ProductionLog[]
+  steps                 ProductionStep[]
+  inventoryTransactions InventoryTransaction[]
+  inventoryReservations InventoryReservation[]
+  printQueueItems       PrintQueueItem[]
+  operations            ProductionOperation[]
 }
 
 model ProductionStep {
-  id         String   @id @default(uuid())
-  orderId    String
-  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  stepName   String   // IN_AN, BE_THANH_PHAM, DAN_GIAO, DONG_GOI
-  status     String   // PENDING, PROCESSING, COMPLETED
-  assignedTo String?
-  updatedAt  DateTime @updatedAt
+  id              String        @id @default(uuid())
+  productionJobId String
+  stepCode        String
+  stepName        String
+  status          String        @default("PENDING")
+  assignedToId    String?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  note            String?
+  issueNote       String?
+  issueType       String?
+  issueSeverity   String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  assignedTo      User?         @relation("StepAssignedUser", fields: [assignedToId], references: [id])
+  productionJob   ProductionJob @relation(fields: [productionJobId], references: [id], onDelete: Cascade)
+}
+
+model ProductionLog {
+  id              String        @id @default(uuid())
+  productionJobId String
+  orderId         String
+  actorId         String
+  actionType      String
+  fromStatus      String?
+  toStatus        String?
+  note            String?
+  createdAt       DateTime      @default(now())
+  actor           User          @relation("ProductionLogActor", fields: [actorId], references: [id])
+  productionJob   ProductionJob @relation(fields: [productionJobId], references: [id], onDelete: Cascade)
+}
+
+model DeliveryJob {
+  id                 String        @id @default(uuid())
+  orderId            String        @unique
+  deliveryCode       String        @unique
+  status             String
+  deliveryMethod     String
+  deliveryAddress    String?
+  receiverName       String?
+  receiverPhone      String?
+  scheduledAt        DateTime?
+  deliveredAt        DateTime?
+  failedReason       String?
+  proofImageUrl      String?
+  proofNote          String?
+  shippingFee        Float         @default(0)
+  note               String?
+  internalNote       String?
+  assignedDeliveryId String?
+  createdById        String?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  assignedTo         User?         @relation("JobAssignedDelivery", fields: [assignedDeliveryId], references: [id])
+  order              Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  logs               DeliveryLog[]
+}
+
+model DeliveryLog {
+  id            String      @id @default(uuid())
+  deliveryJobId String
+  orderId       String
+  actorId       String
+  actionType    String
+  fromStatus    String?
+  toStatus      String?
+  note          String?
+  createdAt     DateTime    @default(now())
+  actor         User        @relation("DeliveryLogActor", fields: [actorId], references: [id])
+  deliveryJob   DeliveryJob @relation(fields: [deliveryJobId], references: [id], onDelete: Cascade)
 }
 
 model Payment {
-  id            String   @id @default(uuid())
+  id            String       @id @default(uuid())
+  paymentCode   String       @unique
   orderId       String
-  order         Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  amount        Float
-  paymentDate   DateTime @default(now())
-  paymentMethod String   // CASH, TRANSFER
-  notes         String?
+  customerId    String
+  amount        Int
+  paymentMethod String
+  paymentStatus String       @default("PENDING")
+  paidAt        DateTime?
+  receivedById  String?
+  note          String?
+  referenceCode String?
+  proofImageUrl String?
+  createdById   String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  createdBy     User?        @relation("PaymentCreator", fields: [createdById], references: [id])
+  receivedBy    User?        @relation("PaymentReceiver", fields: [receivedById], references: [id])
+  customer      Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  order         Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  logs          PaymentLog[]
 }
 
+model PaymentLog {
+  id         String   @id @default(uuid())
+  paymentId  String
+  orderId    String
+  customerId String
+  actorId    String
+  actionType String
+  fromStatus String?
+  toStatus   String?
+  amount     Int?
+  note       String?
+  createdAt  DateTime @default(now())
+  actor      User     @relation("PaymentLogActor", fields: [actorId], references: [id])
+  payment    Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+}
 
 model Material {
-  id               String   @id @default(uuid())
-  materialCode     String   @unique // DECAL-GIAY-3235, ...
-  name             String
-  materialType     String   // DECAL_GIAY, DECAL_NHUA_SUA, DECAL_NHUA_TRONG, DECAL_XI_BAC, DECAL_7_MAU, PAPER, OTHER
-  sheetWidthCm     Float    @default(32)
-  sheetHeightCm    Float    @default(35)
-  basePrice        Float    @default(0) // Đơn giá/tờ (VND)
-  unit             String   @default("SHEET")
-  status           String   @default("ACTIVE") // ACTIVE, INACTIVE
-  note             String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id            String   @id @default(uuid())
+  materialCode  String   @unique
+  name          String
+  materialType  String
+  sheetWidthCm  Float    @default(32)
+  sheetHeightCm Float    @default(35)
+  basePrice     Float    @default(0)
+  unit          String   @default("SHEET")
+  status        String   @default("ACTIVE")
+  note          String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 model LaminationPrice {
   id             String   @id @default(uuid())
   name           String
-  laminationType String   // NONE, THERMAL_GLOSS, THERMAL_MATTE, ADHESIVE_GLOSS, ADHESIVE_MATTE
+  laminationType String
   pricePerSheet  Float    @default(0)
   status         String   @default("ACTIVE")
   note           String?
@@ -188,9 +564,9 @@ model LaminationPrice {
 model DieCutPrice {
   id               String   @id @default(uuid())
   minSheets        Int
-  maxSheets        Int?     // null = bậc cuối không giới hạn
-  shapeCutPrice    Float    // Giá bế theo hình/tờ
-  straightCutPrice Float    // Giá bế thẳng/tờ
+  maxSheets        Int?
+  shapeCutPrice    Float
+  straightCutPrice Float
   status           String   @default("ACTIVE")
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
@@ -201,7 +577,7 @@ model PricingRule {
   ruleCode    String   @unique
   ruleName    String
   description String?
-  configJson  String   // JSON string chứa cấu hình quy tắc
+  configJson  String
   status      String   @default("ACTIVE")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -210,7 +586,7 @@ model PricingRule {
 model FileHandlingFee {
   id          String   @id @default(uuid())
   minQuantity Int
-  maxQuantity Int?     // null = bậc cuối không giới hạn
+  maxQuantity Int?
   feeAmount   Float
   note        String?
   status      String   @default("ACTIVE")
@@ -218,3 +594,405 @@ model FileHandlingFee {
   updatedAt   DateTime @updatedAt
 }
 
+model MachineConfig {
+  id                 String   @id @default(uuid())
+  machineCode        String   @unique
+  machineName        String
+  sheetWidthCm       Float
+  sheetHeightCm      Float
+  usableWidthCm      Float
+  usableHeightCm     Float
+  marginTopCm        Float
+  marginBottomCm     Float
+  marginLeftCm       Float
+  marginRightCm      Float
+  cornerMarkWidthCm  Float
+  cornerMarkHeightCm Float
+  avoidCornerMarks   Boolean  @default(false)
+  status             String   @default("ACTIVE")
+  note               String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model TaskItem {
+  id              String    @id @default(uuid())
+  taskCode        String?   @unique
+  dedupeKey       String?   @unique
+  title           String
+  description     String?
+  type            String
+  priority        String    @default("NORMAL")
+  status          String    @default("OPEN")
+  sourceType      String
+  sourceId        String?
+  customerId      String?
+  orderId         String?
+  assignedToId    String?
+  assignedRole    String?
+  assignedSalesId String?
+  dueAt           DateTime?
+  resolvedAt      DateTime?
+  resolvedById    String?
+  createdById     String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  customer   Customer? @relation(fields: [customerId], references: [id])
+  order      Order?    @relation(fields: [orderId], references: [id])
+  assignedTo User?     @relation("TaskAssignedTo", fields: [assignedToId], references: [id])
+  resolvedBy User?     @relation("TaskResolvedBy", fields: [resolvedById], references: [id])
+  createdBy  User?     @relation("TaskCreatedBy", fields: [createdById], references: [id])
+  logs       TaskLog[]
+
+  @@index([status])
+  @@index([type])
+  @@index([priority])
+  @@index([assignedRole])
+  @@index([assignedToId])
+  @@index([assignedSalesId])
+  @@index([sourceType, sourceId])
+  @@index([customerId])
+  @@index([orderId])
+  @@index([dueAt])
+}
+
+model TaskLog {
+  id         String   @id @default(uuid())
+  taskId     String
+  actorId    String
+  actionType String
+  fromStatus String?
+  toStatus   String?
+  note       String?
+  createdAt  DateTime @default(now())
+
+  task  TaskItem @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  actor User     @relation("TaskLogActor", fields: [actorId], references: [id])
+}
+
+model CompanySettings {
+  id                String   @id @default("default")
+  companyName       String
+  brandName         String?
+  taxCode           String?
+  address           String?
+  phone             String?
+  email             String?
+  website           String?
+  logoUrl           String?
+  quoteFooterNote   String?
+  paymentTerms      String?
+  bankName          String?
+  bankAccountNumber String?
+  bankAccountHolder String?
+  bankBranch        String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  updatedById       String?
+}
+
+model SystemAuditLog {
+  id          String   @id @default(uuid())
+  actorId     String?
+  actorName   String?
+  actorRole   String?
+  action      String
+  entityType  String
+  entityId    String?
+  entityCode  String?
+  description String?
+  beforeJson  String?
+  afterJson   String?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  @@index([actorId])
+  @@index([action])
+  @@index([entityType])
+  @@index([entityId])
+  @@index([createdAt])
+}
+
+model InventoryItem {
+  id               String   @id @default(cuid())
+  itemCode         String   @unique
+  name             String
+  category         String
+  materialType     String?
+  unit             String
+  currentStock     Int      @default(0)
+  reservedStock    Int      @default(0)
+  availableStock   Int      @default(0)
+  minStock         Int      @default(0)
+  reorderPoint     Int?
+  standardCost     Int?
+  lastPurchaseCost Int?
+  supplierName     String?
+  location         String?
+  note             String?
+  status           String   @default("ACTIVE")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  createdById      String?
+  updatedById      String?
+
+  createdBy User? @relation("ItemCreatedBy", fields: [createdById], references: [id])
+  updatedBy User? @relation("ItemUpdatedBy", fields: [updatedById], references: [id])
+
+  transactions    InventoryTransaction[]
+  reservations    InventoryReservation[]
+  printQueueItems PrintQueueItem[]
+
+  @@index([itemCode])
+  @@index([category])
+  @@index([materialType])
+  @@index([status])
+  @@index([currentStock])
+  @@index([availableStock])
+  @@index([minStock])
+}
+
+model InventoryTransaction {
+  id              String   @id @default(cuid())
+  transactionCode String   @unique
+  itemId          String
+  type            String
+  quantity        Int
+  unitCost        Int?
+  totalCost       Int?
+  stockBefore     Int
+  stockAfter      Int
+  referenceType   String?
+  referenceId     String?
+  referenceCode   String?
+  productionJobId String?
+  orderId         String?
+  reason          String?
+  note            String?
+  createdById     String
+  createdAt       DateTime @default(now())
+
+  item          InventoryItem  @relation(fields: [itemId], references: [id])
+  createdBy     User           @relation("InventoryTxCreatedBy", fields: [createdById], references: [id])
+  productionJob ProductionJob? @relation(fields: [productionJobId], references: [id])
+  order         Order?         @relation(fields: [orderId], references: [id])
+  customer      Customer?      @relation(fields: [customerId], references: [id])
+  customerId    String?
+
+  @@index([itemId])
+  @@index([type])
+  @@index([createdAt])
+  @@index([referenceType])
+  @@index([productionJobId])
+  @@index([orderId])
+  @@index([createdById])
+  @@index([customerId])
+}
+
+model InventoryReservation {
+  id              String    @id @default(cuid())
+  itemId          String
+  productionJobId String?
+  orderId         String?
+  quantity        Int
+  status          String
+  note            String?
+  createdById     String
+  createdAt       DateTime  @default(now())
+  releasedAt      DateTime?
+  consumedAt      DateTime?
+
+  item            InventoryItem    @relation(fields: [itemId], references: [id])
+  createdBy       User             @relation("InventoryResCreatedBy", fields: [createdById], references: [id])
+  productionJob   ProductionJob?   @relation(fields: [productionJobId], references: [id])
+  order           Order?           @relation(fields: [orderId], references: [id])
+  customer        Customer?        @relation(fields: [customerId], references: [id])
+  customerId      String?
+  printQueueItems PrintQueueItem[]
+
+  @@index([itemId])
+  @@index([productionJobId])
+  @@index([orderId])
+  @@index([status])
+}
+
+model ProductionMachine {
+  id                        String   @id @default(uuid())
+  machineCode               String   @unique
+  machineName               String
+  machineType               String
+  status                    String   @default("ACTIVE")
+  defaultSpeedSheetsPerHour Int?
+  setupTimeMinutes          Int?
+  maintenanceNote           String?
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
+  printQueueItems      PrintQueueItem[]
+  productionOperations ProductionOperation[]
+}
+
+model PrintQueueItem {
+  id                     String  @id @default(uuid())
+  productionJobId        String
+  orderId                String
+  machineId              String?
+  assignedToId           String?
+  printFileId            String?
+  materialId             String?
+  inventoryReservationId String?
+
+  sheetSize            String?
+  labelsPerSheet       Int?
+  finishedQuantity     Int?
+  estimatedSheets      Int?
+  totalSheets          Int
+  wasteSheets          Int?
+  printedSheets        Int     @default(0)
+  sheetCalculationNote String?
+
+  numberOfSides Int     @default(1)
+  colorMode     String?
+  printMode     String?
+
+  status             String  @default("WAITING_ASSIGNMENT")
+  fileStatus         String  @default("NOT_CHECKED")
+  materialStatus     String  @default("NOT_CHECKED")
+  isMaterialReserved Boolean @default(false)
+  reservedQuantity   Int     @default(0)
+
+  priority      String    @default("NORMAL")
+  queuePosition Int       @default(0)
+  scheduledDate DateTime?
+  deadline      DateTime?
+  startAt       DateTime?
+  endAt         DateTime?
+  actualStartAt DateTime?
+  actualEndAt   DateTime?
+
+  printNote     String?
+  waitingReason String?
+  pauseReason   String?
+  errorReason   String?
+  blockReason   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  productionJob        ProductionJob         @relation(fields: [productionJobId], references: [id], onDelete: Cascade)
+  order                Order                 @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  machine              ProductionMachine?    @relation(fields: [machineId], references: [id])
+  assignedTo           User?                 @relation("PrintJobAssignedTo", fields: [assignedToId], references: [id])
+  printFile            DesignFile?           @relation(fields: [printFileId], references: [id])
+  material             InventoryItem?        @relation(fields: [materialId], references: [id])
+  inventoryReservation InventoryReservation? @relation(fields: [inventoryReservationId], references: [id])
+
+  logs                 PrintQueueLog[]
+  productionOperations ProductionOperation[]
+
+  @@index([machineId])
+  @@index([status])
+  @@index([productionJobId])
+  @@index([orderId])
+  @@index([scheduledDate])
+}
+
+model PrintQueueLog {
+  id                  String   @id @default(uuid())
+  printQueueItemId    String
+  actorId             String
+  action              String
+  fromStatus          String?
+  toStatus            String?
+  printedSheetsBefore Int?
+  printedSheetsAfter  Int?
+  note                String?
+  createdAt           DateTime @default(now())
+
+  printQueueItem PrintQueueItem @relation(fields: [printQueueItemId], references: [id], onDelete: Cascade)
+  actor          User           @relation("PrintQueueLogActor", fields: [actorId], references: [id])
+
+  @@index([printQueueItemId])
+  @@index([actorId])
+  @@index([createdAt])
+}
+
+model OperationDefinition {
+  id              String   @id @default(uuid())
+  code            String   @unique
+  name            String
+  defaultSequence Int
+  isActive        Boolean  @default(true)
+  requiresMachine Boolean  @default(false)
+  allowOutsource  Boolean  @default(false)
+  description     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model ProductionOperation {
+  id               String  @id @default(uuid())
+  productionJobId  String
+  printQueueItemId String?
+  orderItemId      String?
+  operationCode    String
+  operationName    String
+  sequence         Int
+  status           String  @default("WAITING_PREVIOUS")
+  machineId        String?
+  assignedToId     String?
+
+  inputSheets     Int
+  plannedSheets   Int
+  completedSheets Int @default(0)
+  goodSheets      Int @default(0)
+  wasteSheets     Int @default(0)
+
+  errorReason               String?
+  pauseReason               String?
+  outsourceVendorName       String?
+  outsourceSentAt           DateTime?
+  outsourceExpectedReturnAt DateTime?
+  outsourceReceivedAt       DateTime?
+
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  productionJob  ProductionJob            @relation(fields: [productionJobId], references: [id], onDelete: Cascade)
+  printQueueItem PrintQueueItem?          @relation(fields: [printQueueItemId], references: [id], onDelete: Cascade)
+  orderItem      OrderItem?               @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  machine        ProductionMachine?       @relation(fields: [machineId], references: [id])
+  assignedTo     User?                    @relation("OperationAssignedUser", fields: [assignedToId], references: [id])
+  logs           ProductionOperationLog[]
+
+  @@index([productionJobId])
+  @@index([printQueueItemId])
+  @@index([orderItemId])
+  @@index([machineId])
+  @@index([assignedToId])
+  @@index([status])
+}
+
+model ProductionOperationLog {
+  id                    String   @id @default(uuid())
+  productionOperationId String
+  actorId               String
+  action                String
+  fromStatus            String?
+  toStatus              String?
+  beforeData            String?
+  afterData             String?
+  note                  String?
+  createdAt             DateTime @default(now())
+
+  productionOperation ProductionOperation @relation(fields: [productionOperationId], references: [id], onDelete: Cascade)
+  actor               User                @relation("OperationLogActor", fields: [actorId], references: [id])
+
+  @@index([productionOperationId])
+  @@index([actorId])
+  @@index([createdAt])
+}

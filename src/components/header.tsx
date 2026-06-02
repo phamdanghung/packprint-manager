@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { LogOut, User, Layers } from 'lucide-react';
 import { UserSession, logout, switchRoleDemo } from '@/lib/auth';
 import { getRoleName } from '@/lib/utils';
+import Link from 'next/link';
 
 interface HeaderProps {
   user: UserSession;
@@ -50,6 +51,8 @@ export default function Header({ user, isDemoMode }: HeaderProps) {
     if (pathname.includes('/production')) return 'Tiến độ sản xuất';
     if (pathname.includes('/payments')) return 'Công nợ & Thu chi';
     if (pathname.includes('/pricing-config')) return 'Cấu hình bảng giá';
+    if (pathname.includes('/settings')) return 'Cài đặt hệ thống';
+    if (pathname.includes('/profile')) return 'Hồ sơ cá nhân';
     return 'Hệ thống Quản lý';
   };
 
@@ -95,9 +98,12 @@ export default function Header({ user, isDemoMode }: HeaderProps) {
             <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">{getRoleName(user.role)}</span>
           </div>
 
-          <div className="h-9 w-9 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700/80">
+          <Link href="/dashboard/profile"
+            className="h-9 w-9 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700/80 hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
+            title="Hồ sơ cá nhân"
+          >
             <User className="h-4.5 w-4.5" />
-          </div>
+          </Link>
 
           {/* Logout Button */}
           <button

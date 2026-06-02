@@ -1,163 +1,119 @@
 import React from 'react';
 import Link from 'next/link';
-import { Search, ShoppingBag, PlusCircle, Filter, Download } from 'lucide-react';
-import { db } from '@/lib/db';
-import { formatVND, formatDate, getOrderStatusBadge } from '@/lib/utils';
+import { Search, FileText, Package } from 'lucide-react';
+import { getOrders } from '@/lib/order-actions';
+import { formatCurrencyVND, formatDate } from '@/lib/utils';
 import { getCurrentUser } from '@/lib/auth';
 import Unauthorized from '@/components/unauthorized';
 
 export default async function OrdersPage() {
   const user = await getCurrentUser();
   if (!user) return null;
+  const allowedRoles = ['ADMIN', 'MANAGER', 'SALES', 'ACCOUNTANT', 'PRODUCTION', 'DELIVERY', 'DESIGNER'];
+  if (!allowedRoles.includes(user.role)) return <Unauthorized />;
 
-  const allowedRoles = ['ADMIN', 'MANAGER', 'SALES', 'DESIGNER', 'PRODUCTION', 'ACCOUNTANT', 'DELIVERY'];
-  if (!allowedRoles.includes(user.role)) {
-    return <Unauthorized />;
-  }
+  const res = await getOrders();
+  const orders = res.success ? res.data : [];
 
-  const orders = await db.order.findMany({
-    include: {
-      customer: true,
-      quote: true,
-      productionSteps: true,
-      designFiles: true,
-    },
-    orderBy: {
-      createdAt: 'desc',
-    },
-  });
+  const getOrderStatus = (status: string) => {
+    switch (status) {
+      case 'NEW': return { label: 'Mới tạo', bg: 'bg-blue-100 text-blue-800' };
+      case 'WAITING_DESIGN': return { label: 'Chờ thiết kế', bg: 'bg-purple-100 text-purple-800' };
+      case 'WAITING_APPROVAL': return { label: 'Chờ duyệt file', bg: 'bg-yellow-100 text-yellow-800' };
+      case 'READY_FOR_PRINT': return { label: 'Sẵn sàng in', bg: 'bg-indigo-100 text-indigo-800' };
+      case 'PRINTING': return { label: 'Đang in', bg: 'bg-orange-100 text-orange-800' };
+      case 'FINISHING': return { label: 'Đang gia công', bg: 'bg-pink-100 text-pink-800' };
+      case 'QC': return { label: 'Kiểm hàng (QC)', bg: 'bg-teal-100 text-teal-800' };
+      case 'READY_FOR_DELIVERY': return { label: 'Chờ giao hàng', bg: 'bg-cyan-100 text-cyan-800' };
+      case 'DELIVERING': return { label: 'Đang giao', bg: 'bg-lime-100 text-lime-800' };
+      case 'COMPLETED': return { label: 'Hoàn thành', bg: 'bg-green-100 text-green-800' };
+      case 'CANCELLED': return { label: 'Đã huỷ', bg: 'bg-red-100 text-red-800' };
+      default: return { label: status, bg: 'bg-slate-100 text-slate-800' };
+    }
+  };
 
-  const today = new Date();
+  const getPaymentStatus = (status: string) => {
+    switch (status) {
+      case 'UNPAID': return { label: 'Chưa thanh toán', bg: 'bg-red-50 text-red-600 border border-red-200' };
+      case 'PARTIAL': return { label: 'Thanh toán 1 phần', bg: 'bg-yellow-50 text-yellow-700 border border-yellow-200' };
+      case 'PAID': return { label: 'Đã thanh toán đủ', bg: 'bg-green-50 text-green-700 border border-green-200' };
+      default: return { label: status, bg: 'bg-slate-100 text-slate-600' };
+    }
+  };
 
   return (
-    <div className="space-y-6 font-sans">
-      {/* Header */}
+    <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <h1 className="text-xl font-bold text-slate-800 dark:text-white tracking-wide">Quản lý Đơn hàng</h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400">Xem tiến độ sản xuất, trạng thái duyệt file thiết kế, thanh toán công nợ và chỉ số lời/lỗ chi tiết.</p>
+        <div>
+          <h1 className="text-xl font-bold text-slate-800 dark:text-white">Danh sách Đơn hàng</h1>
         </div>
-        <Link href="/dashboard/quotes" className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold bg-teal-500 hover:bg-teal-400 text-white shadow-md shadow-teal-500/10 transition-all cursor-pointer">
-          <PlusCircle className="h-4 w-4" />
-          <span>Tạo Đơn hàng từ Báo giá</span>
-        </Link>
+        <button disabled className="bg-slate-300 text-slate-500 font-bold py-2 px-4 rounded-lg cursor-not-allowed opacity-60">
+          + Tạo đơn hàng thủ công (MVP: Qua báo giá)
+        </button>
       </div>
 
-      {/* Filter Options */}
-      <div className="flex flex-wrap items-center gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 p-4 rounded-2xl shadow-sm">
-        <div className="relative flex-1 min-w-[240px] max-w-md">
+      <div className="flex items-center gap-3 bg-white dark:bg-slate-900 border p-4 rounded-2xl shadow-sm">
+        <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-          <input
-            className="w-full rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 py-2.5 pl-10 pr-4 text-xs text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/50"
-            placeholder="Tìm theo số đơn hàng, tên khách hàng..."
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <button className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-bold border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-600 dark:text-slate-300 transition-all cursor-pointer">
-            <Filter className="h-4 w-4 text-slate-400" />
-            <span>Lọc trạng thái</span>
-          </button>
+          <input className="w-full rounded-xl border py-2.5 pl-10 pr-4 text-xs" placeholder="Tìm kiếm đơn hàng..." />
         </div>
       </div>
 
-      {/* Orders Table */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 rounded-3xl p-6 shadow-sm">
-        <div className="overflow-x-auto rounded-2xl border border-slate-100 dark:border-slate-800/80 custom-scrollbar">
+      <div className="bg-white dark:bg-slate-900 border rounded-3xl p-6 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto rounded-2xl border custom-scrollbar">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
-              <tr className="bg-slate-50 dark:bg-slate-900/60 text-slate-500 dark:text-slate-400 font-bold border-b border-slate-100 dark:border-slate-800">
-                <th className="py-4 px-4 font-semibold uppercase tracking-wider text-[10px]">Đơn hàng / Ngày lập</th>
-                <th className="py-4 px-4 font-semibold uppercase tracking-wider text-[10px]">Khách hàng</th>
-                <th className="py-4 px-4 font-semibold uppercase tracking-wider text-[10px] text-right">Báo giá trị</th>
-                <th className="py-4 px-4 font-semibold uppercase tracking-wider text-[10px]">File final thiết kế</th>
-                <th className="py-4 px-4 font-semibold uppercase tracking-wider text-[10px]">Công đoạn sản xuất</th>
-                <th className="py-4 px-4 font-semibold uppercase tracking-wider text-[10px]">Ngày hẹn giao</th>
-                <th className="py-4 px-4 font-semibold uppercase tracking-wider text-[10px] text-right">Đã thanh toán / Công nợ</th>
+              <tr className="bg-slate-50 font-bold border-b">
+                <th className="py-4 px-4 uppercase">Mã đơn / Ngày tạo</th>
+                <th className="py-4 px-4 uppercase">Khách hàng</th>
+                <th className="py-4 px-4 uppercase">Sản phẩm</th>
+                <th className="py-4 px-4 uppercase text-right">Tổng tiền</th>
+                <th className="py-4 px-4 uppercase">Trạng thái</th>
+                <th className="py-4 px-4 uppercase">Thanh toán</th>
+                <th className="py-4 px-4 uppercase">Hành động</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 bg-white dark:bg-transparent">
-              {orders.map((o) => {
-                const badge = getOrderStatusBadge(o.status);
-                const isLate = new Date(o.deliveryDate).getTime() < today.getTime() && o.status !== 'COMPLETED' && o.status !== 'DELIVERED';
-                
-                const getStepDotColor = (stepName: string) => {
-                  const step = o.productionSteps.find(s => s.stepName === stepName);
-                  if (!step) return 'bg-slate-200 dark:bg-slate-800';
-                  if (step.status === 'COMPLETED') return 'bg-teal-500';
-                  if (step.status === 'PROCESSING') return 'bg-orange-500';
-                  return 'bg-slate-300 dark:bg-slate-700';
-                };
-
+            <tbody className="divide-y">
+              {orders?.map((o: any) => {
+                const statusBadge = getOrderStatus(o.status);
+                const paymentBadge = getPaymentStatus(o.paymentStatus);
+                const firstItem = o.items?.[0];
                 return (
-                  <tr key={o.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-all group">
-                    <td className="py-4 px-4 space-y-1">
-                      <div className="font-bold text-slate-800 dark:text-white flex items-center gap-1.5 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
-                        <ShoppingBag className="h-4 w-4 text-slate-400" />
-                        <span>{o.orderNumber}</span>
+                  <tr key={o.id} className="hover:bg-slate-50/50">
+                    <td className="py-4 px-4">
+                      <div className="font-bold flex items-center gap-1.5 text-blue-700">
+                        <Package className="h-4 w-4" /> <span>{o.orderCode}</span>
                       </div>
                       <div className="text-[10px] text-slate-500">{formatDate(o.createdAt)}</div>
-                      <div>
-                        <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold ${badge.bg} ${badge.text}`}>
-                          {badge.label}
-                        </span>
-                      </div>
+                    </td>
+                    <td className="py-4 px-4 font-bold">{o.customer?.name}</td>
+                    <td className="py-4 px-4 max-w-[200px]">
+                      {firstItem && (
+                        <div>
+                          <div className="font-bold">{firstItem.name}</div>
+                          <div className="text-[10px] text-slate-500">SL: {firstItem.quantity}</div>
+                        </div>
+                      )}
+                    </td>
+                    <td className="py-4 px-4 text-right font-bold text-slate-800">
+                      {['DESIGNER', 'PRODUCTION', 'DELIVERY'].includes(user.role) 
+                        ? '***' 
+                        : formatCurrencyVND(o.totalAmount)}
                     </td>
                     <td className="py-4 px-4">
-                      <div className="font-bold text-slate-700 dark:text-slate-300">{o.customer.name}</div>
-                      {o.customer.companyName && (
-                        <div className="text-[10px] text-slate-500 italic">{o.customer.companyName}</div>
-                      )}
-                    </td>
-                    <td className="py-4 px-4 text-right font-bold text-slate-800 dark:text-white">
-                      {formatVND(o.totalAmount)}
-                    </td>
-                    <td className="py-4 px-4 max-w-[150px]">
-                      {o.designFiles && o.designFiles.length > 0 ? (
-                        <div className="flex items-center gap-1.5">
-                          <Link href="#" className="p-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-teal-500/10 hover:text-teal-600 dark:hover:text-teal-400 transition-all cursor-pointer flex-shrink-0">
-                            <Download className="h-3.5 w-3.5" />
-                          </Link>
-                          <span className="font-medium text-slate-700 dark:text-slate-300 truncate" title={o.designFiles[0].fileName}>
-                            {o.designFiles[0].fileName}
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="text-[10px] text-slate-400 dark:text-slate-500 italic">Chưa có file duyệt</span>
-                      )}
-                    </td>
-                    <td className="py-4 px-4 space-y-1">
-                      <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-1">
-                          <div className={`h-2.5 w-2.5 rounded-full ${getStepDotColor('IN_AN')}`} />
-                          <span className="text-[9px] text-slate-500">In</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <div className={`h-2.5 w-2.5 rounded-full ${getStepDotColor('BE_THANH_PHAM')}`} />
-                          <span className="text-[9px] text-slate-500">Bế</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <div className={`h-2.5 w-2.5 rounded-full ${getStepDotColor('DAN_GIAO')}`} />
-                          <span className="text-[9px] text-slate-500">Dán</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <div className={`h-2.5 w-2.5 rounded-full ${getStepDotColor('DONG_GOI')}`} />
-                          <span className="text-[9px] text-slate-500">Gói</span>
-                        </div>
-                      </div>
+                      <span className={`inline-block px-2 py-1 rounded text-[10px] font-bold ${statusBadge.bg}`}>
+                        {statusBadge.label}
+                      </span>
                     </td>
                     <td className="py-4 px-4">
-                      <div className={`font-bold ${isLate ? 'text-rose-600 dark:text-rose-400' : 'text-slate-700 dark:text-slate-300'}`}>
-                        {formatDate(o.deliveryDate)}
-                      </div>
-                      {isLate && (
-                        <span className="text-[9px] font-bold text-rose-500 uppercase">Trễ hạn</span>
-                      )}
+                      <span className={`inline-block px-2 py-1 rounded text-[10px] font-bold ${paymentBadge.bg}`}>
+                        {paymentBadge.label}
+                      </span>
                     </td>
-                    <td className="py-4 px-4 text-right space-y-0.5">
-                      <div className="font-bold text-slate-700 dark:text-slate-300">{formatVND(o.paidAmount)}</div>
-                      <div className={`text-[10px] font-bold ${o.debtAmount > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-teal-600'}`}>
-                        {o.debtAmount > 0 ? `Nợ: ${formatVND(o.debtAmount)}` : 'Thu đủ'}
-                      </div>
+                    <td className="py-4 px-4">
+                      <Link href={`/dashboard/orders/${o.id}`} className="text-blue-600 hover:underline font-bold">
+                        Xem chi tiết
+                      </Link>
                     </td>
                   </tr>
                 );

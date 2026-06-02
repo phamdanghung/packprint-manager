@@ -24,7 +24,7 @@ import {
   X,
   Loader2
 } from 'lucide-react';
-import { formatVND, formatDate, getRoleName, getOrderStatusBadge } from '@/lib/utils';
+import { formatCurrencyVND, formatVND, formatDate, getRoleName, getOrderStatusBadge } from '@/lib/utils';
 import { updateCustomer } from '@/lib/customer-actions';
 
 interface CustomerDetailClientProps {
@@ -124,7 +124,7 @@ export default function CustomerDetailClient({ customer, userRole }: CustomerDet
       order.payments.forEach((payment: any) => {
         paymentHistory.push({
           ...payment,
-          orderNumber: order.orderNumber
+          orderNumber: order.orderCode
         });
       });
     }
@@ -139,7 +139,7 @@ export default function CustomerDetailClient({ customer, userRole }: CustomerDet
       order.designFiles.forEach((file: any) => {
         designFilesList.push({
           ...file,
-          orderNumber: order.orderNumber
+          orderNumber: order.orderCode
         });
       });
     }
@@ -422,6 +422,21 @@ export default function CustomerDetailClient({ customer, userRole }: CustomerDet
                     <span>{customer.createdBy?.name || 'Hệ thống'} <span className="text-[10px] text-slate-400 font-medium">({getRoleName(customer.createdBy?.role || 'SYSTEM')})</span></span>
                   </div>
                 </div>
+
+                {/* Sales phụ trách */}
+                <div className="space-y-1">
+                  <span className="text-slate-400">Sales phụ trách:</span>
+                  <div className="font-semibold text-slate-800 dark:text-slate-300 flex items-center gap-1.5">
+                    {customer.assignedSales ? (
+                      <>
+                        <User className="h-4 w-4 text-teal-500" />
+                        <span className="text-teal-600">{customer.assignedSales.name}</span>
+                      </>
+                    ) : (
+                      <span className="italic text-slate-400 font-normal">Chưa phân công</span>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -485,9 +500,9 @@ export default function CustomerDetailClient({ customer, userRole }: CustomerDet
                             <div key={i} className="space-y-0.5">
                               <span className="font-bold text-slate-750 dark:text-slate-300">{item.name}</span>
                               <div className="text-[10px] text-slate-550 flex flex-wrap gap-x-2">
-                                <span>SL: <strong>{item.qty.toLocaleString()}</strong></span>
-                                <span>Kích thước: <strong>{item.size}</strong></span>
-                                <span>Chất liệu: <strong>{item.paper}</strong></span>
+                                <span>SL: <strong>{item.quantity.toLocaleString()}</strong></span>
+                                <span>Kích thước: <strong>{item.widthCm}</strong></span>
+                                <span>Chất liệu: <strong>{item.materialId}</strong></span>
                               </div>
                             </div>
                           ))}
@@ -544,7 +559,7 @@ export default function CustomerDetailClient({ customer, userRole }: CustomerDet
                       const badge = getOrderStatusBadge(o.status);
                       
                       const getStepDotColor = (stepName: string) => {
-                        const step = o.productionSteps?.find((s: any) => s.stepName === stepName);
+                        const step = o.productionJob?.steps?.find((s: any) => s.stepName === stepName);
                         if (!step) return 'bg-slate-200 dark:bg-slate-800';
                         if (step.status === 'COMPLETED') return 'bg-teal-500';
                         if (step.status === 'PROCESSING') return 'bg-orange-500';
@@ -556,7 +571,7 @@ export default function CustomerDetailClient({ customer, userRole }: CustomerDet
                           <td className="py-4 px-4 space-y-1">
                             <div className="font-bold text-slate-850 dark:text-white flex items-center gap-1.5">
                               <ShoppingBag className="h-4 w-4 text-slate-400" />
-                              <span>{o.orderNumber}</span>
+                              <span>{o.orderCode}</span>
                             </div>
                             <div className="text-[10px] text-slate-500">{formatDate(o.createdAt)}</div>
                           </td>
@@ -565,8 +580,8 @@ export default function CustomerDetailClient({ customer, userRole }: CustomerDet
                               <div key={i} className="space-y-0.5">
                                 <span className="font-bold text-slate-750 dark:text-slate-300">{item.name}</span>
                                 <div className="text-[10px] text-slate-550 flex flex-wrap gap-x-2">
-                                  <span>SL: <strong>{item.qty.toLocaleString()}</strong></span>
-                                  <span>Chất liệu: <strong>{item.paper}</strong></span>
+                                  <span>SL: <strong>{item.quantity.toLocaleString()}</strong></span>
+                                  <span>Chất liệu: <strong>{item.materialId}</strong></span>
                                 </div>
                               </div>
                             ))}
@@ -577,7 +592,7 @@ export default function CustomerDetailClient({ customer, userRole }: CustomerDet
                                 <div className={`h-2 w-2 rounded-full ${getStepDotColor('IN_AN')}`} />
                                 <span className="text-[9px] text-slate-550">In</span>
                               </div>
-                              <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1">
                                 <div className={`h-2 w-2 rounded-full ${getStepDotColor('BE_THANH_PHAM')}`} />
                                 <span className="text-[9px] text-slate-550">Bế</span>
                               </div>
@@ -591,13 +606,13 @@ export default function CustomerDetailClient({ customer, userRole }: CustomerDet
                               </div>
                             </div>
                           </td>
-                          <td className="py-4 px-4 font-bold text-slate-700 dark:text-slate-300">
-                            {formatDate(o.deliveryDate)}
+                          <td className="py-4 px-4 font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                            {formatDate(o.dueDate)}
                           </td>
-                          <td className="py-4 px-4 text-right font-bold text-slate-800 dark:text-white">
+                          <td className="py-4 px-4 text-right font-bold text-slate-800 dark:text-white whitespace-nowrap">
                             {formatVND(o.totalAmount)}
                           </td>
-                          <td className="py-4 px-4">
+                          <td className="py-4 px-4 whitespace-nowrap">
                             <span className={`inline-block px-2.5 py-0.5 rounded-full text-[9px] font-bold ${badge.bg} ${badge.text}`}>
                               {badge.label}
                             </span>
@@ -617,91 +632,196 @@ export default function CustomerDetailClient({ customer, userRole }: CustomerDet
           </div>
         )}
 
-        {/* TAB 4: CÔNG NỢ */}
+        {/* TAB 4: CÔNG NỢ & LỊCH SỬ THU TIỀN */}
         {activeTab === 'payments' && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-fade-in">
-            {/* Lịch sử thanh toán */}
-            <div className="md:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 rounded-3xl p-6 shadow-sm space-y-6">
-              <h3 className="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider">Lịch sử nộp tiền & Thu hồi nợ</h3>
+            {/* Cột chính: Đơn nợ & Lịch sử thanh toán */}
+            <div className="md:col-span-2 space-y-6">
               
-              {paymentHistory.length > 0 ? (
-                <div className="overflow-x-auto rounded-2xl border border-slate-100 dark:border-slate-800/80 custom-scrollbar text-xs">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="bg-slate-50 dark:bg-slate-900/60 text-slate-500 dark:text-slate-400 font-bold border-b border-slate-100 dark:border-slate-800">
-                        <th className="py-4 px-4 font-semibold uppercase tracking-wider text-[10px]">Ngày nộp</th>
-                        <th className="py-4 px-4 font-semibold uppercase tracking-wider text-[10px]">Đơn hàng liên quan</th>
-                        <th className="py-4 px-4 font-semibold uppercase tracking-wider text-[10px]">Kênh thanh toán</th>
-                        <th className="py-4 px-4 font-semibold uppercase tracking-wider text-[10px] text-right">Số tiền thu</th>
-                        <th className="py-4 px-4 font-semibold uppercase tracking-wider text-[10px]">Ghi chú</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 bg-white dark:bg-transparent">
-                      {paymentHistory.map((p: any) => (
-                        <tr key={p.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-all">
-                          <td className="py-4 px-4 text-slate-550 font-medium">
-                            {formatDate(p.paymentDate)}
-                          </td>
-                          <td className="py-4 px-4 font-bold text-slate-800 dark:text-white">
-                            {p.orderNumber}
-                          </td>
-                          <td className="py-4 px-4">
-                            <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold ${
-                              p.paymentMethod === 'TRANSFER'
-                                ? 'bg-blue-500/10 text-blue-600 border border-blue-500/10'
-                                : 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/10'
-                            }`}>
-                              {p.paymentMethod === 'TRANSFER' ? 'Chuyển khoản' : 'Tiền mặt'}
-                            </span>
-                          </td>
-                          <td className="py-4 px-4 text-right font-bold text-emerald-600 dark:text-emerald-400">
-                            {formatVND(p.amount)}
-                          </td>
-                          <td className="py-4 px-4 text-slate-500 italic max-w-[120px] truncate" title={p.notes || ''}>
-                            {p.notes || '-'}
-                          </td>
+              {/* Danh sách đơn hàng còn nợ */}
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 rounded-3xl p-6 shadow-sm space-y-4">
+                <h3 className="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider">Danh sách Đơn hàng còn nợ</h3>
+                
+                {customer.orders?.filter((o: any) => o.debtAmount > 0 && o.status !== 'CANCELLED').length > 0 ? (
+                  <div className="overflow-x-auto rounded-2xl border border-slate-100 dark:border-slate-800/80 custom-scrollbar text-xs">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50 dark:bg-slate-900/60 text-slate-500 dark:text-slate-400 font-bold border-b border-slate-100 dark:border-slate-800">
+                          <th className="py-4 px-4 font-semibold uppercase tracking-wider text-[10px]">Đơn hàng</th>
+                          <th className="py-4 px-4 font-semibold uppercase tracking-wider text-[10px] text-right">Tổng phải thu</th>
+                          <th className="py-4 px-4 font-semibold uppercase tracking-wider text-[10px] text-right">Đã thu</th>
+                          <th className="py-4 px-4 font-semibold uppercase tracking-wider text-[10px] text-right">Còn nợ</th>
+                          <th className="py-4 px-4 font-semibold uppercase tracking-wider text-[10px]">Trạng thái TT</th>
+                          <th className="py-4 px-4 font-semibold uppercase tracking-wider text-[10px]">Trạng thái Đơn</th>
+                          <th className="py-4 px-4 font-semibold uppercase tracking-wider text-[10px] text-center">Hành động</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-10 text-center text-slate-400 dark:text-slate-500 italic">
-                  <DollarSign className="h-10 w-10 text-slate-350 dark:text-slate-600 mb-2" />
-                  <span className="text-xs">Chưa có lịch sử giao dịch nộp tiền nào được ghi nhận.</span>
-                </div>
-              )}
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 bg-white dark:bg-transparent">
+                        {customer.orders.filter((o: any) => o.debtAmount > 0 && o.status !== 'CANCELLED').map((o: any) => (
+                          <tr key={o.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-all">
+                            <td className="py-4 px-4">
+                              <Link href={`/dashboard/orders/${o.id}`} className="font-bold text-teal-600 hover:underline">
+                                {o.orderCode}
+                              </Link>
+                              <div className="text-[10px] text-slate-500 mt-1">{formatDate(o.createdAt)}</div>
+                            </td>
+                            <td className="py-4 px-4 text-right font-medium text-slate-800 dark:text-white whitespace-nowrap">
+                              {formatCurrencyVND(o.totalAmount)}
+                            </td>
+                            <td className="py-4 px-4 text-right font-bold text-emerald-600 whitespace-nowrap">
+                              {formatCurrencyVND(o.paidAmount)}
+                            </td>
+                            <td className="py-4 px-4 text-right font-bold text-rose-600 whitespace-nowrap">
+                              {formatCurrencyVND(o.debtAmount)}
+                            </td>
+                            <td className="py-4 px-4 whitespace-nowrap">
+                              <span className={`inline-block px-2.5 py-1 rounded-full text-[9px] font-bold ${
+                                o.paymentStatus === 'PAID' ? 'bg-emerald-100 text-emerald-700' :
+                                o.paymentStatus === 'PARTIAL' ? 'bg-blue-100 text-blue-700' :
+                                'bg-rose-100 text-rose-700'
+                              }`}>
+                                {o.paymentStatus === 'UNPAID' ? 'Chưa thanh toán' : o.paymentStatus === 'PARTIAL' ? 'Thanh toán 1 phần' : o.paymentStatus === 'PAID' ? 'Đã thanh toán đủ' : o.paymentStatus === 'REFUNDED' ? 'Đã hoàn tiền' : o.paymentStatus}
+                              </span>
+                            </td>
+                            <td className="py-4 px-4 whitespace-nowrap">
+                              <span className={`inline-block px-2.5 py-1 rounded-full text-[9px] font-bold ${getOrderStatusBadge(o.status).bg} ${getOrderStatusBadge(o.status).text}`}>
+                                {getOrderStatusBadge(o.status).label}
+                              </span>
+                            </td>
+                            <td className="py-4 px-4 text-center whitespace-nowrap">
+                              <Link 
+                                href={`/dashboard/orders/${o.id}`}
+                                className="text-[10px] font-bold px-3 py-1.5 bg-teal-50 hover:bg-teal-100 text-teal-700 rounded-lg whitespace-nowrap"
+                              >
+                                Xem / Thu tiền
+                              </Link>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="text-center text-slate-500 italic py-6 text-xs">Khách hàng không còn công nợ.</div>
+                )}
+              </div>
+
+              {/* Lịch sử nộp tiền */}
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 rounded-3xl p-6 shadow-sm space-y-6">
+                <h3 className="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider">Lịch sử Phiếu thu gần đây</h3>
+                
+                {paymentHistory.length > 0 ? (
+                  <div className="overflow-x-auto rounded-2xl border border-slate-100 dark:border-slate-800/80 custom-scrollbar text-xs">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50 dark:bg-slate-900/60 text-slate-500 dark:text-slate-400 font-bold border-b border-slate-100 dark:border-slate-800">
+                          <th className="py-4 px-4 font-semibold uppercase tracking-wider text-[10px]">Mã PT / Ngày nộp</th>
+                          <th className="py-4 px-4 font-semibold uppercase tracking-wider text-[10px]">Đơn hàng</th>
+                          <th className="py-4 px-4 font-semibold uppercase tracking-wider text-[10px] text-right">Số tiền thu</th>
+                          <th className="py-4 px-4 font-semibold uppercase tracking-wider text-[10px]">Phương thức</th>
+                          <th className="py-4 px-4 font-semibold uppercase tracking-wider text-[10px]">Trạng thái</th>
+                          <th className="py-4 px-4 font-semibold uppercase tracking-wider text-[10px]">Người thu</th>
+                          <th className="py-4 px-4 font-semibold uppercase tracking-wider text-[10px]">Ghi chú</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 bg-white dark:bg-transparent">
+                        {paymentHistory.slice(0, 10).map((p: any) => (
+                          <tr key={p.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-all">
+                            <td className="py-4 px-4">
+                              <div className="font-bold text-slate-800 dark:text-white">{p.paymentCode}</div>
+                              <div className="text-[10px] text-slate-500 mt-1">{formatDate(p.createdAt)}</div>
+                            </td>
+                            <td className="py-4 px-4 whitespace-nowrap">
+                              <Link href={`/dashboard/orders/${p.orderId}`} className="font-bold text-teal-600 hover:underline">
+                                {p.orderNumber}
+                              </Link>
+                            </td>
+                            <td className="py-4 px-4 text-right font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
+                              {formatCurrencyVND(p.amount)}
+                            </td>
+                            <td className="py-4 px-4 font-medium text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                              {p.paymentMethod}
+                            </td>
+                            <td className="py-4 px-4 whitespace-nowrap">
+                              <span className={`inline-block px-2.5 py-1 rounded-full text-[9px] font-bold ${
+                                p.paymentStatus === 'CONFIRMED' ? 'bg-emerald-100 text-emerald-700' :
+                                p.paymentStatus === 'PENDING' ? 'bg-amber-100 text-amber-700' :
+                                'bg-slate-200 text-slate-700'
+                              }`}>
+                                {p.paymentStatus === 'CONFIRMED' ? 'Đã xác nhận' : p.paymentStatus === 'PENDING' ? 'Chờ xác nhận' : 'Đã hủy'}
+                              </span>
+                            </td>
+                            <td className="py-4 px-4 text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                              {p.receivedBy?.name || p.createdBy?.name || '-'}
+                            </td>
+                            <td className="py-4 px-4 text-slate-500 max-w-[150px] truncate" title={p.note}>
+                              {p.note || '-'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-10 text-center text-slate-400 dark:text-slate-500 italic">
+                    <DollarSign className="h-10 w-10 text-slate-350 dark:text-slate-600 mb-2" />
+                    <span className="text-xs">Chưa có phiếu thu nào.</span>
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* Tóm tắt nợ */}
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 rounded-3xl p-6 shadow-sm space-y-4">
-              <h4 className="text-xs font-bold text-slate-855 dark:text-white uppercase tracking-wider">Tình trạng Tín dụng & Dư nợ</h4>
+            {/* Tóm tắt nợ (Sidebar phải) */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 rounded-3xl p-6 shadow-sm space-y-4 h-fit">
+              <h4 className="text-xs font-bold text-slate-855 dark:text-white uppercase tracking-wider">Tổng quan công nợ khách</h4>
               <div className="space-y-3.5 text-xs">
                 <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/40 border border-slate-100 dark:border-slate-900/30">
-                  <span className="text-slate-400 block mb-1">Dư nợ hiện tại:</span>
-                  <span className={`text-xl font-extrabold block ${
+                  <span className="text-slate-500 block mb-1">Tổng công nợ hiện tại:</span>
+                  <span className={`text-2xl font-extrabold block whitespace-nowrap ${
                     customer.debtBalance > 0 
-                      ? 'text-amber-500' 
+                      ? 'text-rose-600' 
                       : customer.debtBalance < 0 
-                        ? 'text-blue-500' 
-                        : 'text-teal-650'
+                        ? 'text-blue-600' 
+                        : 'text-teal-600'
                   }`}>
                     {customer.debtBalance > 0 
-                      ? formatVND(customer.debtBalance) 
+                      ? formatCurrencyVND(customer.debtBalance) 
                       : customer.debtBalance < 0 
-                        ? `Khách ứng trước: ${formatVND(Math.abs(customer.debtBalance))}` 
-                        : 'Thu đủ 100%'}
+                        ? `Khách ứng trước: ${formatCurrencyVND(Math.abs(customer.debtBalance))}` 
+                        : 'Không có nợ'}
                   </span>
                 </div>
 
-                <div className="space-y-2 text-[11px] text-slate-500 leading-relaxed">
-                  <div className="flex items-center gap-1.5">
-                    <div className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-                    <span>Nợ Dương (&gt;0): Số tiền khách nợ xưởng chưa thu.</span>
+                <div className="flex justify-between items-center py-2 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-slate-500">Tổng đã mua (Doanh thu):</span>
+                  <span className="font-bold text-slate-800 dark:text-slate-200">{formatCurrencyVND(totalRevenue)}</span>
+                </div>
+
+                <div className="flex justify-between items-center py-2 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-slate-500">Tổng đã thanh toán:</span>
+                  <span className="font-bold text-emerald-600">{formatCurrencyVND(customer.orders?.reduce((sum: number, o: any) => sum + (o.status !== 'CANCELLED' ? o.paidAmount : 0), 0) || 0)}</span>
+                </div>
+
+                <div className="flex justify-between items-center py-2 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-slate-500">Số đơn còn nợ:</span>
+                  <span className="font-bold text-amber-600">{customer.orders?.filter((o: any) => o.debtAmount > 0 && o.status !== 'CANCELLED').length || 0}</span>
+                </div>
+
+                <div className="flex justify-between items-center py-2 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-slate-500">Trạng thái thanh toán:</span>
+                  <span className={`font-bold ${customer.debtBalance > 0 ? 'text-rose-500' : 'text-teal-500'}`}>
+                    {customer.debtBalance > 0 ? 'Đang dư nợ' : 'Hoàn tất'}
+                  </span>
+                </div>
+
+                <div className="space-y-2 text-[11px] text-slate-500 leading-relaxed mt-4">
+                  <div className="flex items-start gap-2">
+                    <div className="h-1.5 w-1.5 rounded-full bg-rose-500 mt-1 flex-shrink-0" />
+                    <span>Hệ thống tự động tính tổng nợ từ các đơn hàng chưa thanh toán đủ.</span>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-                    <span>Nợ Âm (&lt;0): Khách ứng dư trước để làm cọc vật tư.</span>
+                  <div className="flex items-start gap-2">
+                    <div className="h-1.5 w-1.5 rounded-full bg-teal-500 mt-1 flex-shrink-0" />
+                    <span>Để giảm nợ, cần tạo phiếu thu trong chi tiết Đơn hàng.</span>
                   </div>
                 </div>
               </div>
@@ -722,7 +842,7 @@ export default function CustomerDetailClient({ customer, userRole }: CustomerDet
                       <div className="font-bold text-slate-800 dark:text-white text-xs truncate" title={file.fileName}>
                         {file.fileName}
                       </div>
-                      <p className="text-[10px] text-slate-500 font-medium">Đơn hàng: <strong>{file.orderNumber}</strong></p>
+                      <p className="text-[10px] text-slate-500 font-medium">Đơn hàng: <strong>{file.orderCode}</strong></p>
                       <span className="text-[9px] text-slate-400 block">{formatDate(file.uploadedAt)}</span>
                     </div>
 

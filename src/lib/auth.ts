@@ -113,6 +113,18 @@ export async function logout(): Promise<void> {
  * Lấy thông tin user hiện tại bằng cách truy vấn database dựa trên sessionToken
  */
 export async function getCurrentUser(): Promise<UserSession | null> {
+  if (process.env.TEST_USER_ID) {
+    const testUser = await db.user.findUnique({ where: { id: process.env.TEST_USER_ID } });
+    if (testUser) {
+      return {
+        id: testUser.id,
+        name: testUser.name,
+        email: testUser.email,
+        role: testUser.role as any,
+      };
+    }
+  }
+
   try {
     const cookieStore = await cookies();
     const cookie = cookieStore.get(SESSION_COOKIE_NAME);
@@ -145,12 +157,21 @@ export async function getCurrentUser(): Promise<UserSession | null> {
       return null;
     }
 
+    // Kích hoạt Demo Role Switcher
+    let activeRole = user.role;
+    if (user.role === 'ADMIN' && (process.env.NODE_ENV !== 'production' || process.env.ENABLE_DEMO_SWITCHER === 'true')) {
+      const demoRoleCookie = cookieStore.get('packprint_demo_role');
+      if (demoRoleCookie && demoRoleCookie.value) {
+        activeRole = demoRoleCookie.value;
+      }
+    }
+
     // Trả về UserSession an toàn, loại bỏ hoàn toàn passwordHash
     return {
       id: user.id,
       email: user.email,
       name: user.name,
-      role: user.role as any,
+      role: activeRole as any,
     };
   } catch (error) {
     return null;
@@ -164,32 +185,42 @@ export async function getCurrentUser(): Promise<UserSession | null> {
  *   2. Server layer: NODE_ENV phải là 'development', mọi call trong production đều bị từ chối
  */
 export async function switchRoleDemo(newRole: 'ADMIN' | 'MANAGER' | 'SALES' | 'DESIGNER' | 'PRODUCTION' | 'ACCOUNTANT' | 'DELIVERY'): Promise<boolean> {
-  // Lớp bảo vệ server: tuyệt đối từ chối trên production
-  if (process.env.NODE_ENV !== 'development') {
-    console.error('[SECURITY] switchRoleDemo bị từ chối: không phải môi trường development.');
+  // Lớp bảo vệ server: từ chối trên production trừ khi cờ được bật
+  if (process.env.NODE_ENV === 'production' && process.env.ENABLE_DEMO_SWITCHER !== 'true') {
+    console.error('[SECURITY] switchRoleDemo bị từ chối: production.');
     return false;
   }
-  
+
   try {
-    const headersList = await headers();
-    const host = headersList.get('host') || '';
-    if (!host.includes('localhost') && !host.includes('127.0.0.1')) {
-      console.error('[SECURITY] switchRoleDemo bị từ chối: không phải localhost.');
+    const cookieStore = await cookies();
+    const cookie = cookieStore.get(SESSION_COOKIE_NAME);
+    if (!cookie || !cookie.value) return false;
+
+    const tokenHash = hashToken(cookie.value);
+    const session = await db.session.findUnique({
+      where: { tokenHash },
+      include: { user: true },
+    });
+
+    if (!session || !session.user) return false;
+
+    // BẢO MẬT: Chỉ ADMIN thật (trong DB) mới được quyền switch role
+    if (session.user.role !== 'ADMIN') {
+      console.error('[SECURITY] User thường không được switch role.');
       return false;
     }
-  } catch (e) {
-    return false;
-  }
 
-  try {
-    const currentUser = await getCurrentUser();
-    if (!currentUser) return false;
-
-    // Chỉ cập nhật vai trò trong development
-    await db.user.update({
-      where: { id: currentUser.id },
-      data: { role: newRole },
-    });
+    if (newRole === 'ADMIN') {
+      cookieStore.delete('packprint_demo_role');
+    } else {
+      cookieStore.set('packprint_demo_role', newRole, {
+        httpOnly: true,
+        secure: (process.env.NODE_ENV as string) === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 60 * 60 * 24, // 1 ngày
+      });
+    }
 
     return true;
   } catch (error) {

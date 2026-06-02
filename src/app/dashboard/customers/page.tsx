@@ -3,8 +3,13 @@ import { db } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import Unauthorized from '@/components/unauthorized';
 import CustomersClient from './customers-client';
+import { getCustomersWithCrmFilters } from '@/lib/crm-actions';
 
-export default async function CustomersPage() {
+export default async function CustomersPage({
+  searchParams,
+}: {
+  searchParams: any;
+}) {
   const user = await getCurrentUser();
   if (!user) return null;
 
@@ -15,25 +20,20 @@ export default async function CustomersPage() {
     return <Unauthorized />;
   }
 
-  // Lấy danh sách khách hàng ban đầu từ SQLite qua Prisma
-  const customers = await db.customer.findMany({
-    orderBy: {
-      customerCode: 'desc',
-    },
-    include: {
-      createdBy: {
-        select: {
-          name: true,
-          role: true,
-        }
-      }
-    }
+  // Get initial data using CRM filters (empty filters initially)
+  const customers = await getCustomersWithCrmFilters({});
+
+  const salesUsers = await db.user.findMany({
+    where: { role: 'SALES', status: 'ACTIVE' },
+    select: { id: true, name: true }
   });
 
   return (
     <CustomersClient 
       initialCustomers={customers} 
       userRole={user.role} 
+      currentUserId={user.id}
+      salesUsers={salesUsers}
     />
   );
 }

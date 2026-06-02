@@ -13,12 +13,18 @@ import {
   DollarSign, 
   Sliders, 
   Printer,
-  ChevronRight
+  Truck,
+  ChevronRight,
+  Bell,
+  BarChart,
+  Settings,
+  Package
 } from 'lucide-react';
 import { UserSession } from '@/lib/auth';
 
 interface SidebarProps {
   user: UserSession;
+  pendingTaskCount?: number;
 }
 
 interface MenuItem {
@@ -30,16 +36,24 @@ interface MenuItem {
 
 const MENU_ITEMS: MenuItem[] = [
   { name: 'Dashboard Tổng quan', href: '/dashboard', icon: LayoutDashboard, roles: ['ADMIN', 'MANAGER', 'SALES', 'DESIGNER', 'PRODUCTION', 'ACCOUNTANT', 'DELIVERY'] },
+  { name: 'Báo cáo', href: '/dashboard/reports', icon: BarChart, roles: ['ADMIN', 'MANAGER', 'SALES', 'ACCOUNTANT', 'PRODUCTION', 'DELIVERY'] },
+  { name: 'Việc cần xử lý', href: '/dashboard/tasks', icon: Bell, roles: ['ADMIN', 'MANAGER', 'SALES', 'DESIGNER', 'PRODUCTION', 'ACCOUNTANT', 'DELIVERY'] },
   { name: 'Khách hàng', href: '/dashboard/customers', icon: Users, roles: ['ADMIN', 'MANAGER', 'SALES'] },
   { name: 'Báo giá', href: '/dashboard/quotes', icon: FileText, roles: ['ADMIN', 'MANAGER', 'SALES', 'ACCOUNTANT'] },
   { name: 'Đơn hàng', href: '/dashboard/orders', icon: ShoppingBag, roles: ['ADMIN', 'MANAGER', 'SALES', 'DESIGNER', 'PRODUCTION', 'ACCOUNTANT', 'DELIVERY'] },
   { name: 'Duyệt file thiết kế', href: '/dashboard/design-approval', icon: FileCheck, roles: ['ADMIN', 'MANAGER', 'DESIGNER', 'SALES'] },
-  { name: 'Tiến độ sản xuất', href: '/dashboard/production', icon: Cpu, roles: ['ADMIN', 'MANAGER', 'PRODUCTION', 'DELIVERY'] },
-  { name: 'Công nợ & Thu chi', href: '/dashboard/payments', icon: DollarSign, roles: ['ADMIN', 'MANAGER', 'ACCOUNTANT'] },
+  { name: 'Kho vật tư', href: '/dashboard/inventory', icon: Package, roles: ['ADMIN', 'MANAGER', 'PRODUCTION', 'ACCOUNTANT'] },
+  { name: 'Lịch Sản Xuất (Máy in)', href: '/dashboard/production-schedule', icon: Cpu, roles: ['ADMIN', 'MANAGER', 'PRODUCTION'] },
+  { name: 'Gia Công Sau In', href: '/dashboard/post-print', icon: Package, roles: ['ADMIN', 'MANAGER', 'PRODUCTION'] },
+  { name: 'Quản lý Công đoạn', href: '/dashboard/production', icon: Cpu, roles: ['ADMIN', 'MANAGER', 'PRODUCTION', 'DELIVERY'] },
+  { name: 'Quản lý giao hàng', href: '/dashboard/delivery', icon: Truck, roles: ['ADMIN', 'MANAGER', 'SALES', 'ACCOUNTANT', 'DELIVERY'] },
+  { name: 'Phiếu thu tiền', href: '/dashboard/payments', icon: DollarSign, roles: ['ADMIN', 'MANAGER', 'ACCOUNTANT', 'SALES'] },
+  { name: 'Công nợ khách hàng', href: '/dashboard/debts', icon: Users, roles: ['ADMIN', 'MANAGER', 'ACCOUNTANT', 'SALES'] },
   { name: 'Cấu hình bảng giá', href: '/dashboard/pricing-config', icon: Sliders, roles: ['ADMIN', 'MANAGER'] },
+  { name: 'Cài đặt hệ thống', href: '/dashboard/settings', icon: Settings, roles: ['ADMIN', 'MANAGER'] },
 ];
 
-export default function Sidebar({ user }: SidebarProps) {
+export default function Sidebar({ user, pendingTaskCount = 0 }: SidebarProps) {
   const pathname = usePathname();
 
   // Lọc menu theo vai trò người dùng
@@ -84,9 +98,16 @@ export default function Sidebar({ user }: SidebarProps) {
                 }`} />
                 <span>{item.name}</span>
               </div>
-              <ChevronRight className={`h-3.5 w-3.5 transition-transform duration-200 opacity-0 group-hover:opacity-100 ${
-                isActive ? 'text-teal-400 opacity-50' : 'text-slate-500'
-              }`} />
+              <div className="flex items-center gap-2">
+                {item.href === '/dashboard/tasks' && pendingTaskCount > 0 && (
+                  <span className="bg-rose-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center">
+                    {pendingTaskCount > 99 ? '99+' : pendingTaskCount}
+                  </span>
+                )}
+                <ChevronRight className={`h-3.5 w-3.5 transition-transform duration-200 opacity-0 group-hover:opacity-100 ${
+                  isActive ? 'text-teal-400 opacity-50' : 'text-slate-500'
+                }`} />
+              </div>
             </Link>
           );
         })}

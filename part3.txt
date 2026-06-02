@@ -1,0 +1,43 @@
+
+export async function getPostPrintOperations(machineId?: string, operationCode?: string) {
+  const user = await checkPostPrintAccess();
+  
+  const where: any = {};
+  if (machineId) where.machineId = machineId;
+  if (operationCode) where.operationCode = operationCode;
+  
+  // By default, hide COMPLETED and SKIPPED, unless we want a history tab, 
+  // but let's just fetch all active operations for now
+  where.status = { notIn: ['COMPLETED', 'SKIPPED'] };
+
+  if (user.role === 'PRODUCTION') {
+     // Usually can see all, but maybe filtered in UI
+  }
+
+  return db.productionOperation.findMany({
+    where,
+    orderBy: [
+      { productionJobId: 'asc' },
+      { sequence: 'asc' }
+    ],
+    include: {
+      productionJob: { select: { jobCode: true, status: true, order: { select: { customer: { select: { name: true } } } } } },
+      printQueueItem: { select: { id: true, material: { select: { name: true } } } },
+      orderItem: { select: { productName: true, width: true, height: true, unit: true } },
+      machine: { select: { name: true, code: true } },
+      assignedTo: { select: { name: true } },
+      logs: {
+        include: { actor: { select: { name: true } } },
+        orderBy: { createdAt: 'desc' }
+      }
+    }
+  });
+}
+
+export async function getOperationDefinitions() {
+  await checkPostPrintAccess();
+  return db.operationDefinition.findMany({
+    where: { isActive: true },
+    orderBy: { defaultSequence: 'asc' }
+  });
+}
