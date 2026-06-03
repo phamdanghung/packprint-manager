@@ -65,14 +65,14 @@ export async function getProductionJobById(id: string) {
     const auth = await checkProductionAuth(['ALL']);
     if (!auth.ok) return { success: false, error: auth.error };
 
-    const job = await db.productionJob.findUnique({
+    let job = await db.productionJob.findUnique({
       where: { id },
       include: {
         order: { include: { customer: true, items: true } },
         assignedTo: { select: { name: true } },
         steps: { 
           include: { assignedTo: { select: { name: true } } },
-          orderBy: { createdAt: 'asc' } // Ensure logical order: PRINTING -> LAMINATING -> DIE_CUTTING -> QC -> PACKING
+          orderBy: { createdAt: 'asc' }
         },
         logs: { 
           include: { actor: { select: { name: true } } },
@@ -82,6 +82,23 @@ export async function getProductionJobById(id: string) {
     });
 
     if (!job) return { success: false, error: 'Không tìm thấy lệnh sản xuất' };
+
+    // Auto-generate QR Token if missing
+    if (!job.qrToken) {
+      const crypto = require('crypto');
+      const randomToken = 'pjqr_' + crypto.randomBytes(16).toString('hex');
+      
+      await db.productionJob.update({
+        where: { id },
+        data: {
+          qrToken: randomToken,
+          qrIssuedAt: new Date()
+        }
+      });
+      job.qrToken = randomToken;
+      job.qrIssuedAt = new Date();
+    }
+
     return { success: true, data: job };
   } catch (error: any) {
     return { success: false, error: error.message };

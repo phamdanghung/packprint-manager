@@ -21,7 +21,7 @@ function hashToken(token: string): string {
 /**
  * Đăng nhập người dùng bằng email và password
  */
-export async function login(email: string, passwordPlain: string): Promise<{ success: boolean; error?: string }> {
+export async function login(email: string, passwordPlain: string): Promise<{ success: boolean; error?: string; role?: string }> {
   try {
     const user = await db.user.findUnique({
       where: { email },
@@ -72,13 +72,13 @@ export async function login(email: string, passwordPlain: string): Promise<{ suc
     const cookieStore = await cookies();
     cookieStore.set(SESSION_COOKIE_NAME, sessionToken, {
       httpOnly: true,
-      secure: (process.env.NODE_ENV as string) === 'production',
+      secure: false, // Always false for local testing
       sameSite: 'lax',
       path: '/',
       maxAge: 60 * 60 * 24 * 7, // 7 ngày
     });
 
-    return { success: true };
+    return { success: true, role: user.role };
   } catch (error: any) {
     console.error('Lỗi đăng nhập:', error);
     const errMsg = error instanceof Error ? error.message : String(error);

@@ -120,32 +120,34 @@ export default function DashboardClient({ initialData, currentTimeRange }: any) 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Revenue Chart */}
           {revenueChart && (
-            <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col">
-              <h3 className="font-bold text-slate-800 dark:text-white mb-6">Biểu đồ doanh thu</h3>
+            <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col w-full overflow-hidden">
+              <h3 className="font-bold text-slate-800 dark:text-white mb-6 shrink-0">Biểu đồ doanh thu</h3>
               {revenueChart.every((d: any) => d.amount === 0) ? (
                 <div className="h-64 flex items-center justify-center text-slate-400 italic">Chưa có dữ liệu phát sinh</div>
               ) : (
-                <div className="h-64 flex items-end gap-1 sm:gap-2">
-                  {revenueChart.map((d: any, i: number) => {
-                    const max = Math.max(...revenueChart.map((r: any) => r.amount)) || 1;
-                    const height = `${(d.amount / max) * 100}%`;
-                    return (
-                      <div key={i} className="flex-1 flex flex-col items-center gap-1 sm:gap-2 group relative h-full justify-end">
-                        <div className="absolute -top-8 opacity-0 group-hover:opacity-100 bg-slate-800 text-white text-[10px] py-1 px-2 rounded pointer-events-none transition-opacity whitespace-nowrap z-10 hidden sm:block">
-                          {formatCurrencyVND(d.amount)}
+                <div className="w-full overflow-x-auto custom-scrollbar pb-2">
+                  <div className="h-64 flex items-end gap-1 sm:gap-2 min-w-[500px] px-1">
+                    {revenueChart.map((d: any, i: number) => {
+                      const max = Math.max(...revenueChart.map((r: any) => r.amount)) || 1;
+                      const height = `${(d.amount / max) * 100}%`;
+                      return (
+                        <div key={i} className="flex-1 flex flex-col items-center gap-1 sm:gap-2 group relative h-full justify-end">
+                          <div className="absolute -top-8 opacity-0 group-hover:opacity-100 bg-slate-800 text-white text-[10px] py-1 px-2 rounded pointer-events-none transition-opacity whitespace-nowrap z-10 hidden sm:block">
+                            {formatCurrencyVND(d.amount)}
+                          </div>
+                          <div className="w-full bg-blue-100 dark:bg-blue-900/30 rounded-t-sm flex items-end relative overflow-hidden" style={{ height: 'calc(100% - 20px)' }}>
+                            <div 
+                              className="w-full bg-blue-500 dark:bg-blue-500/80 rounded-t-sm transition-all duration-500" 
+                              style={{ height: d.amount === 0 ? '2px' : height }}
+                            />
+                          </div>
+                          <div className="text-[8px] sm:text-[10px] text-slate-500 truncate w-full text-center">
+                            {d.date.split('-')[2]}/{d.date.split('-')[1]}
+                          </div>
                         </div>
-                        <div className="w-full bg-blue-100 dark:bg-blue-900/30 rounded-t-sm flex items-end relative overflow-hidden" style={{ height: 'calc(100% - 20px)' }}>
-                          <div 
-                            className="w-full bg-blue-500 dark:bg-blue-500/80 rounded-t-sm transition-all duration-500" 
-                            style={{ height: d.amount === 0 ? '2px' : height }}
-                          />
-                        </div>
-                        <div className="text-[8px] sm:text-[10px] text-slate-500 truncate w-full text-center">
-                          {d.date.split('-')[2]}/{d.date.split('-')[1]}
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>

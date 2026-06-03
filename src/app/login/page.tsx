@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Printer, ShieldAlert, CheckCircle2, User, Key, ArrowRight } from 'lucide-react';
 import { login } from '@/lib/auth';
 
@@ -15,8 +15,10 @@ const DEMO_ACCOUNTS = [
   { role: 'DELIVERY', name: 'Giao hàng', email: 'delivery@packprint.vn', pass: '123456', color: 'border-emerald-200 hover:border-emerald-400 bg-emerald-50/50 text-emerald-700 dark:bg-emerald-950/10 dark:text-emerald-400 dark:border-emerald-900/30' },
 ];
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get('callbackUrl');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -37,10 +39,16 @@ export default function LoginPage() {
       const res = await login(email, password);
       if (res.success) {
         setSuccess(true);
-        setTimeout(() => {
-          router.push('/dashboard');
-          router.refresh();
-        }, 1000);
+        // hard refresh
+        if (callbackUrl && callbackUrl.startsWith('/')) {
+          window.location.href = callbackUrl;
+        } else if (res.role === 'PRODUCTION') {
+          window.location.href = '/dashboard/post-print/mobile';
+        } else if (res.role === 'DELIVERY') {
+          window.location.href = '/dashboard/delivery/mobile';
+        } else {
+          window.location.href = '/dashboard';
+        }
       } else {
         setError(res.error || 'Đăng nhập không thành công.');
         setLoading(false);
@@ -194,5 +202,14 @@ export default function LoginPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+import { Suspense } from 'react';
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-slate-900 flex items-center justify-center text-white">Đang tải...</div>}>
+      <LoginForm />
+    </Suspense>
   );
 }

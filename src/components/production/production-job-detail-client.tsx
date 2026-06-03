@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, User, Calendar, Tag, AlertCircle } from 'lucide-react';
+import { ArrowLeft, User, Calendar, Tag, AlertCircle, QrCode } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import ProductionTimeline from './production-timeline';
 import ProductionLogViewer from './production-log';
@@ -49,6 +49,8 @@ const PRIORITY_COLORS: Record<string, string> = {
   URGENT: 'text-red-600 font-bold animate-pulse'
 };
 
+import { QRCodeSVG } from 'qrcode.react';
+
 export default function ProductionJobDetailClient({ job, userRole }: { job: any, userRole: string }) {
   const canUpdate = ['ADMIN', 'MANAGER', 'PRODUCTION'].includes(userRole);
   const items = job.order?.items || [];
@@ -57,14 +59,20 @@ export default function ProductionJobDetailClient({ job, userRole }: { job: any,
   const totalSteps = job.steps.length;
   const doneSteps = job.steps.filter((s: any) => s.status === 'DONE' || s.status === 'SKIPPED').length;
   const percent = totalSteps > 0 ? Math.round((doneSteps / totalSteps) * 100) : 0;
+  const qrUrl = typeof window !== 'undefined' ? `${window.location.origin}/r/${job.qrToken}` : `/r/${job.qrToken}`;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Link href="/dashboard/production" className="p-2 bg-white rounded-full shadow-sm hover:bg-slate-50 transition-colors">
-          <ArrowLeft className="w-5 h-5 text-slate-600" />
+      <div className="flex items-center gap-4 justify-between">
+        <div className="flex items-center gap-4">
+          <Link href="/dashboard/production" className="p-2 bg-white rounded-full shadow-sm hover:bg-slate-50 transition-colors">
+            <ArrowLeft className="w-5 h-5 text-slate-600" />
+          </Link>
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Chi tiết Lệnh SX: {job.jobCode}</h1>
+        </div>
+        <Link href={`/dashboard/production/${job.id}/trace`} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-sm">
+          Xem Timeline Tổng (Trace)
         </Link>
-        <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Chi tiết Lệnh SX: {job.jobCode}</h1>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -76,12 +84,23 @@ export default function ProductionJobDetailClient({ job, userRole }: { job: any,
                 <div className="text-sm text-slate-500 mb-1">Mã đơn hàng: <Link href={`/dashboard/orders/${job.orderId}`} className="text-blue-600 hover:underline">{job.order?.orderCode}</Link></div>
                 <div className="text-lg font-bold">{job.order?.customer?.name}</div>
               </div>
-              <div className="flex gap-3">
-                <div className="text-right">
+              <div className="flex flex-wrap gap-4">
+                {job.qrToken && (
+                  <div className="text-right flex flex-col items-end gap-1.5 border-l border-slate-100 pl-4 ml-2">
+                    <div className="text-xs text-slate-500 flex items-center gap-1"><QrCode className="w-3.5 h-3.5" /> Smart QR</div>
+                    <div className="bg-white p-1 border border-slate-200 rounded-md shadow-sm print:shadow-none">
+                      <QRCodeSVG value={qrUrl} size={72} level="M" />
+                    </div>
+                    <Link href={`/r/${job.qrToken}`} target="_blank" className="text-[10px] font-mono text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100 hover:bg-indigo-100 transition-colors">
+                      {job.qrToken.substring(0, 10)}...
+                    </Link>
+                  </div>
+                )}
+                <div className="text-right ml-2 border-l border-slate-100 pl-4">
                   <div className="text-xs text-slate-500 mb-1">Mức ưu tiên</div>
                   <div className={`text-sm ${PRIORITY_COLORS[job.priority]}`}>{PRIORITY_LABELS[job.priority] || job.priority}</div>
                 </div>
-                <div className="text-right ml-4">
+                <div className="text-right ml-2 border-l border-slate-100 pl-4">
                   <div className="text-xs text-slate-500 mb-1">Trạng thái</div>
                   <div className={`px-3 py-1 rounded-full text-xs font-bold inline-block ${STATUS_BADGES[job.status] || 'bg-slate-100'}`}>
                     {STATUS_LABELS[job.status] || job.status}

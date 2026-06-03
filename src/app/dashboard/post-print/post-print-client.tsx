@@ -141,7 +141,7 @@ export default function PostPrintClient({ operations, opDefs, machines, currentU
         <div className="text-[11px] space-y-1 bg-slate-50 p-2 rounded-md">
           <div className="flex justify-between">
             <span className="text-slate-500">Sản phẩm:</span>
-            <span className="font-semibold text-right max-w-[120px] truncate" title={op.orderItem.name}>{op.orderItem.name}</span>
+            <span className="font-semibold text-right max-w-[120px] truncate" title={op.orderItem?.name}>{op.orderItem?.name || 'N/A'}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-slate-500">Vật tư:</span>

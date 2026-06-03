@@ -118,3 +118,7 @@ export function getPaymentStatusBadge(status: string): { label: string; bg: stri
       return { label: status, bg: 'bg-slate-100', text: 'text-slate-700' };
   }
 }
+
+export function getDeliveryCodAmount(order: any) {
+  return Math.max(0, order?.debtAmount || 0);
+}

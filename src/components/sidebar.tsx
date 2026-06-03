@@ -60,7 +60,7 @@ export default function Sidebar({ user, pendingTaskCount = 0 }: SidebarProps) {
   const filteredMenu = MENU_ITEMS.filter(item => item.roles.includes(user.role));
 
   return (
-    <aside className="w-68 bg-slate-900 border-r border-slate-800 text-slate-300 flex flex-col h-screen sticky top-0 shrink-0">
+    <aside className="hidden md:flex w-68 bg-slate-900 border-r border-slate-800 text-slate-300 flex-col h-screen sticky top-0 shrink-0">
       {/* Brand Header */}
       <div className="h-16 px-6 border-b border-slate-800 flex items-center gap-3">
         <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-teal-500 to-indigo-600 flex items-center justify-center text-white font-bold shadow-md shadow-teal-500/10">

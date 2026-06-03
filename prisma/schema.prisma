@@ -66,6 +66,7 @@ model User {
   printQueueLogs        PrintQueueLog[]          @relation("PrintQueueLogActor")
   assignedOperations    ProductionOperation[]    @relation("OperationAssignedUser")
   operationLogs         ProductionOperationLog[] @relation("OperationLogActor")
+  qrScanLogs            ProductionQrScanLog[]    @relation("QrScanLogUser")
 }
 
 model Session {
@@ -421,6 +422,11 @@ model ProductionJob {
   inventoryReservations InventoryReservation[]
   printQueueItems       PrintQueueItem[]
   operations            ProductionOperation[]
+  
+  qrToken               String?                @unique
+  qrIssuedAt            DateTime?
+  qrRevokedAt           DateTime?
+  qrScanLogs            ProductionQrScanLog[]
 }
 
 model ProductionStep {
@@ -477,6 +483,7 @@ model DeliveryJob {
   createdById        String?
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
+  startedAt          DateTime?
   assignedTo         User?         @relation("JobAssignedDelivery", fields: [assignedDeliveryId], references: [id])
   order              Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
   logs               DeliveryLog[]
@@ -995,4 +1002,25 @@ model ProductionOperationLog {
   @@index([productionOperationId])
   @@index([actorId])
   @@index([createdAt])
+}
+
+model ProductionQrScanLog {
+  id              String         @id @default(uuid())
+  token           String
+  productionJobId String?
+  userId          String?
+  userRole        String?
+  result          String
+  resolvedTarget  String?
+  reason          String?
+  userAgent       String?
+  ipAddress       String?
+  createdAt       DateTime       @default(now())
+
+  productionJob   ProductionJob? @relation(fields: [productionJobId], references: [id], onDelete: SetNull)
+  user            User?          @relation("QrScanLogUser", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([token])
+  @@index([productionJobId])
+  @@index([userId])
 }
