@@ -31,7 +31,9 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
             </Link>
           )}
           <ConvertQuoteButton quoteId={quote.id} status={quote.status} />
-          <button className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">Xuất PDF</button>
+          <Link href={`/dashboard/print/quotes/${quote.id}`} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2">
+            Xuất PDF
+          </Link>
         </div>
       </div>
 

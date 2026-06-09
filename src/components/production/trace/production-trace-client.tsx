@@ -20,6 +20,13 @@ const STEPS = [
   { id: 'PAYMENT', label: 'Thanh toán', icon: CreditCard }
 ];
 
+function normalizeRoleLabel(role: string | null | undefined): string {
+  if (!role) return 'UNKNOWN';
+  const upper = role.toUpperCase();
+  if (['PRODUTTON', 'PRODUTION', 'PRODUCTION'].includes(upper)) return 'PRODUCTION';
+  return upper;
+}
+
 export default function ProductionTraceClient({ traceData, events, currentUser }: { traceData: any, events: any[], currentUser: any }) {
   const order = traceData.order;
   const customer = order?.customer;
@@ -297,18 +304,19 @@ export default function ProductionTraceClient({ traceData, events, currentUser }
             {traceData.qrScanLogs?.length > 0 ? (
               <div className="space-y-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
                 {traceData.qrScanLogs.map((log: any) => {
-                  let roleLabel = (log.userRole || 'UNKNOWN').toUpperCase();
-                  if (roleLabel === 'PRODUTTON') roleLabel = 'PRODUCTION';
+                  let roleLabel = normalizeRoleLabel(log.userRole);
+                  let displayResult = ['PRODUTTON', 'PRODUTION'].includes(log.result) ? 'PRODUCTION' : log.result;
+                  let displayReason = log.reason ? log.reason.replace(/PRODUTION|PRODUTTON/gi, 'PRODUCTION') : '';
                   return (
                   <div key={log.id} className="text-xs bg-slate-50 p-2 rounded border">
                     <div className="flex justify-between font-bold mb-1">
                       <span>{roleLabel}</span>
                       <span suppressHydrationWarning>{new Date(log.createdAt).toLocaleTimeString()} {new Date(log.createdAt).toLocaleDateString()}</span>
                     </div>
-                    <div className="text-slate-600 mb-1 break-words">{log.reason}</div>
+                    <div className="text-slate-600 mb-1 break-words">{displayReason}</div>
                     <div className="flex justify-between items-center gap-2">
-                      <span className={`px-1.5 py-0.5 rounded shrink-0 ${log.result === 'REDIRECT' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
-                        {log.result}
+                      <span className={`px-1.5 py-0.5 rounded shrink-0 ${displayResult === 'REDIRECT' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
+                        {displayResult}
                       </span>
                       <span className="text-slate-400 truncate min-w-0">{log.resolvedTarget || 'No Target'}</span>
                     </div>

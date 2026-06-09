@@ -22,7 +22,7 @@ export interface DecalQuoteRequest {
   
   // Relations to DB
   materialId: string;
-  laminationId: string;
+  laminationId?: string;
   machineCode?: string; // Optional, can use default
 }
 

@@ -14,6 +14,13 @@ import {
   INVENTORY_TRANSACTION_TYPES
 } from '@/lib/inventory-constants';
 
+function formatIntegerBaseQuantity(num: number | string | undefined | null) {
+  if (num === null || num === undefined) return '0';
+  const val = typeof num === 'string' ? parseFloat(num) : num;
+  if (isNaN(val)) return '0';
+  return Math.round(val).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}
+
 export default function InventoryClient({ initialData, initialItems, userRole }: any) {
   const [activeTab, setActiveTab] = useState('inventory');
   const [items, setItems] = useState(initialItems);
@@ -106,8 +113,22 @@ export default function InventoryClient({ initialData, initialItems, userRole }:
           }`}
         >
           <List className="h-4 w-4" />
-          Tồn kho
+          Tồn kho (Vật tư)
         </button>
+        <a
+          href="/dashboard/inventory/conversions"
+          className="flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 whitespace-nowrap transition-colors"
+        >
+          <Package className="h-4 w-4" />
+          Chuyển đổi (Cắt giấy)
+        </a>
+        <a
+          href="/dashboard/inventory/molds"
+          className="flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 whitespace-nowrap transition-colors"
+        >
+          <Package className="h-4 w-4" />
+          Khuôn Bế (Tooling)
+        </a>
         <button
           onClick={() => setActiveTab('alerts')}
           className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
@@ -138,9 +159,9 @@ export default function InventoryClient({ initialData, initialItems, userRole }:
                   <th className="px-4 py-3 font-semibold">Mã VT</th>
                   <th className="px-4 py-3 font-semibold">Tên vật tư</th>
                   <th className="px-4 py-3 font-semibold">Nhóm</th>
-                  <th className="px-4 py-3 font-semibold text-right">Có thể dùng</th>
-                  <th className="px-4 py-3 font-semibold text-right">Thực tế / Đã giữ</th>
-                  <th className="px-4 py-3 font-semibold text-center">Đơn vị</th>
+                  <th className="px-4 py-3 font-semibold text-right">Có thể dùng (Base)</th>
+                  <th className="px-4 py-3 font-semibold text-right">Thực tế / Đã giữ (Base)</th>
+                  <th className="px-4 py-3 font-semibold text-center">Hiển thị</th>
                   {canViewCost && <th className="px-4 py-3 font-semibold text-right">Giá chuẩn</th>}
                   <th className="px-4 py-3 font-semibold text-center">Trạng thái</th>
                   <th className="px-4 py-3 font-semibold text-right">Hành động</th>
@@ -164,15 +185,15 @@ export default function InventoryClient({ initialData, initialItems, userRole }:
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <span className={`font-bold ${item.availableStock <= 0 ? 'text-rose-600' : (item.availableStock <= item.minStock ? 'text-amber-600' : 'text-emerald-600')}`}>
-                        {item.availableStock.toLocaleString('vi-VN')}
+                      <span className={`font-bold ${item.availableStockBase <= 0 ? 'text-rose-600' : (item.availableStockBase <= item.minStockBase ? 'text-amber-600' : 'text-emerald-600')}`}>
+                        {formatIntegerBaseQuantity(item.availableStockBase)} {item.stockBaseUnit}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right text-slate-500">
-                      {item.currentStock.toLocaleString('vi-VN')} / <span className="text-amber-600">{item.reservedStock.toLocaleString('vi-VN')}</span>
+                      {formatIntegerBaseQuantity(item.currentStockBase)} / <span className="text-amber-600">{formatIntegerBaseQuantity(item.reservedStockBase)}</span>
                     </td>
                     <td className="px-4 py-3 text-center text-slate-600">
-                      {INVENTORY_UNITS[item.unit as keyof typeof INVENTORY_UNITS] || item.unit}
+                      {item.displayUnit ? `${formatIntegerBaseQuantity(item.availableStockBase / item.unitScale)} ${item.displayUnit}` : '-'}
                     </td>
                     {canViewCost && (
                       <td className="px-4 py-3 text-right text-slate-600">
@@ -220,14 +241,14 @@ export default function InventoryClient({ initialData, initialItems, userRole }:
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {items.filter((i:any) => i.availableStock <= i.minStock).map((item: any) => (
+                {items.filter((i:any) => i.availableStockBase <= i.minStockBase).map((item: any) => (
                   <tr key={item.id} className="hover:bg-slate-50">
                     <td className="px-4 py-3 font-medium text-slate-900">{item.itemCode}</td>
                     <td className="px-4 py-3 font-medium text-slate-900">{item.name}</td>
-                    <td className="px-4 py-3 text-right font-bold text-rose-600">{item.availableStock.toLocaleString('vi-VN')}</td>
-                    <td className="px-4 py-3 text-right text-slate-500">{item.minStock.toLocaleString('vi-VN')}</td>
+                    <td className="px-4 py-3 text-right font-bold text-rose-600">{formatIntegerBaseQuantity(item.availableStockBase)} {item.stockBaseUnit}</td>
+                    <td className="px-4 py-3 text-right text-slate-500">{formatIntegerBaseQuantity(item.minStockBase)} {item.stockBaseUnit}</td>
                     <td className="px-4 py-3 text-center">
-                      {item.availableStock <= 0 ? (
+                      {item.availableStockBase <= 0 ? (
                         <span className="inline-block px-2 py-1 bg-rose-100 text-rose-700 rounded text-[10px] font-bold">HẾT HÀNG</span>
                       ) : (
                         <span className="inline-block px-2 py-1 bg-amber-100 text-amber-700 rounded text-[10px] font-bold">TỒN THẤP</span>
@@ -283,11 +304,11 @@ export default function InventoryClient({ initialData, initialItems, userRole }:
                     </td>
                     <td className="px-4 py-3 text-right">
                       <span className={`font-bold ${['INBOUND', 'ADJUSTMENT_INCREASE'].includes(tx.type) ? 'text-emerald-600' : 'text-rose-600'}`}>
-                        {['INBOUND', 'ADJUSTMENT_INCREASE'].includes(tx.type) ? '+' : '-'}{tx.quantity.toLocaleString('vi-VN')}
+                        {['INBOUND', 'ADJUSTMENT_INCREASE'].includes(tx.type) ? '+' : '-'}{formatIntegerBaseQuantity(tx.quantity)}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right text-slate-600">
-                      {tx.stockAfter.toLocaleString('vi-VN')}
+                      {formatIntegerBaseQuantity(tx.stockAfter)}
                     </td>
                     <td className="px-4 py-3">
                       <div className="text-slate-600">{tx.reason || tx.note || '-'}</div>
@@ -349,9 +370,12 @@ function ItemModal({ onClose, onSuccess }: any) {
         category: formData.get('category'),
         materialType: formData.get('materialType') || null,
         unit: formData.get('unit'),
-        minStock: Number(formData.get('minStock')),
+        stockBaseUnit: formData.get('stockBaseUnit'),
+        displayUnit: formData.get('displayUnit'),
+        unitScale: Number(formData.get('unitScale')) || 1,
+        minStockBase: Number(formData.get('minStockBase')),
         standardCost: Number(formData.get('standardCost')) || null,
-        initialStock: Number(formData.get('initialStock')) || 0,
+        initialStockBase: Number(formData.get('initialStockBase')) || 0,
         location: formData.get('location') as string || null,
         supplierName: formData.get('supplierName') as string || null,
         status: 'ACTIVE'
@@ -396,18 +420,34 @@ function ItemModal({ onClose, onSuccess }: any) {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-bold mb-1 text-slate-700">Đơn vị *</label>
-              <select name="unit" required className="w-full p-2 border rounded-lg text-sm">
-                {Object.entries(INVENTORY_UNITS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              <label className="block text-xs font-bold mb-1 text-slate-700">Đơn vị lưu trữ (Base) *</label>
+              <select name="stockBaseUnit" required className="w-full p-2 border rounded-lg text-sm">
+                <option value="SHEET">Tờ (Sheet)</option>
+                <option value="MILLIMETER">Milimét (mm)</option>
+                <option value="SQUARE_METER">Mét vuông (m²)</option>
+                <option value="GRAM">Gram (g)</option>
               </select>
             </div>
             <div>
-              <label className="block text-xs font-bold mb-1 text-slate-700">Tồn tối thiểu</label>
-              <input name="minStock" type="number" defaultValue="0" min="0" required className="w-full p-2 border rounded-lg text-sm" />
+              <label className="block text-xs font-bold mb-1 text-slate-700">Đơn vị hiển thị (Display)</label>
+              <select name="displayUnit" required className="w-full p-2 border rounded-lg text-sm">
+                <option value="SHEET">Tờ (Sheet)</option>
+                <option value="METER">Mét (m)</option>
+                <option value="KG">Kilogram (kg)</option>
+                <option value="ROLL">Cuộn (Roll)</option>
+              </select>
             </div>
             <div>
-              <label className="block text-xs font-bold mb-1 text-slate-700">Tồn đầu kỳ</label>
-              <input name="initialStock" type="number" defaultValue="0" min="0" className="w-full p-2 border rounded-lg text-sm" />
+              <label className="block text-xs font-bold mb-1 text-slate-700">Tỷ lệ quy đổi (Scale) *</label>
+              <input name="unitScale" type="number" defaultValue="1" min="1" required className="w-full p-2 border rounded-lg text-sm" placeholder="Ví dụ: 1000 nếu Base=mm, Display=m" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold mb-1 text-slate-700">Tồn tối thiểu (Base Unit)</label>
+              <input name="minStockBase" type="number" defaultValue="0" min="0" required className="w-full p-2 border rounded-lg text-sm" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold mb-1 text-slate-700">Tồn đầu kỳ (Base Unit)</label>
+              <input name="initialStockBase" type="number" defaultValue="0" min="0" className="w-full p-2 border rounded-lg text-sm" />
             </div>
             <div>
               <label className="block text-xs font-bold mb-1 text-slate-700">Giá vốn chuẩn (VNĐ)</label>
@@ -438,6 +478,26 @@ function InboundModal({ item, onClose, onSuccess }: any) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const [purchaseQuantity, setPurchaseQuantity] = useState<number | ''>('');
+  const [rollLengthM, setRollLengthM] = useState<number>(item.rollLengthM || 500);
+
+  const isRoll = item.purchaseUnit === 'ROLL' || item.displayUnit === 'ROLL' || item.stockBaseUnit === 'MILLIMETER';
+  const displayUnitName = item.purchaseUnit || item.displayUnit || item.unit;
+  
+  let calculatedBaseQty = 0;
+  let previewText = '';
+  
+  if (purchaseQuantity !== '') {
+    if (isRoll) {
+      calculatedBaseQty = Math.round(Number(purchaseQuantity) * rollLengthM * 1000);
+      previewText = `${purchaseQuantity} cuộn × ${formatIntegerBaseQuantity(rollLengthM)}m = ${formatIntegerBaseQuantity(Number(purchaseQuantity) * rollLengthM)}m = ${formatIntegerBaseQuantity(calculatedBaseQty)} MILLIMETER`;
+    } else {
+      calculatedBaseQty = Math.round(Number(purchaseQuantity) * (item.unitScale || 1));
+      const displayLabel = displayUnitName === 'SHEET' ? 'tờ' : displayUnitName;
+      previewText = `${purchaseQuantity} ${displayLabel} = ${formatIntegerBaseQuantity(calculatedBaseQty)} ${item.stockBaseUnit}`;
+    }
+  }
+
   const handleSubmit = async (e: any) => {
     e.preventDefault();
     setLoading(true);
@@ -446,7 +506,8 @@ function InboundModal({ item, onClose, onSuccess }: any) {
     try {
       await createInboundTransaction({
         itemId: item.id,
-        quantity: Number(formData.get('quantity')),
+        purchaseQuantity: Number(formData.get('purchaseQuantity')),
+        rollLengthM: isRoll ? Number(formData.get('rollLengthM')) : undefined,
         unitCost: Number(formData.get('unitCost')) || undefined,
         referenceCode: formData.get('referenceCode') as string || undefined,
         note: formData.get('note') as string || undefined,
@@ -473,10 +534,43 @@ function InboundModal({ item, onClose, onSuccess }: any) {
           <div className="space-y-4">
             <div>
               <label className="block text-xs font-bold mb-1 text-slate-700">Số lượng nhập *</label>
-              <input name="quantity" type="number" min="1" required className="w-full p-2 border rounded-lg text-sm" />
+              <input 
+                name="purchaseQuantity" 
+                type="number" 
+                min="0.01" 
+                step="0.01" 
+                required 
+                value={purchaseQuantity}
+                onChange={(e) => setPurchaseQuantity(e.target.value === '' ? '' : Number(e.target.value))}
+                className="w-full p-2 border rounded-lg text-sm" 
+                placeholder="Ví dụ: 3"
+              />
+              <div className="text-xs text-slate-500 mt-1">Đơn vị nhập: {displayUnitName === 'ROLL' ? 'Cuộn' : displayUnitName}</div>
             </div>
+
+            {isRoll && (
+              <div>
+                <label className="block text-xs font-bold mb-1 text-slate-700">Chiều dài mỗi cuộn (Mét) *</label>
+                <input 
+                  name="rollLengthM" 
+                  type="number" 
+                  min="1" 
+                  required 
+                  value={rollLengthM}
+                  onChange={(e) => setRollLengthM(Number(e.target.value))}
+                  className="w-full p-2 border rounded-lg text-sm" 
+                />
+              </div>
+            )}
+
+            {purchaseQuantity !== '' && (
+              <div className="p-2 bg-indigo-50 border border-indigo-100 text-indigo-700 text-sm rounded-lg">
+                <span className="font-semibold">Quy đổi tồn kho:</span> {previewText}
+              </div>
+            )}
+
             <div>
-              <label className="block text-xs font-bold mb-1 text-slate-700">Đơn giá nhập (VNĐ)</label>
+              <label className="block text-xs font-bold mb-1 text-slate-700">Đơn giá nhập (VNĐ / {displayUnitName === 'ROLL' ? 'cuộn' : displayUnitName})</label>
               <input name="unitCost" type="number" min="0" step="1" className="w-full p-2 border rounded-lg text-sm" />
             </div>
             <div>
@@ -498,7 +592,7 @@ function InboundModal({ item, onClose, onSuccess }: any) {
           </div>
           <div className="pt-4 flex justify-end gap-3">
             <button type="button" onClick={onClose} className="px-4 py-2 border rounded-lg text-sm font-medium hover:bg-slate-50">Hủy</button>
-            <button type="submit" disabled={loading} className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50">
+            <button type="submit" disabled={loading || purchaseQuantity === ''} className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50">
               {loading ? 'Đang lưu...' : 'Xác nhận nhập'}
             </button>
           </div>
@@ -520,7 +614,7 @@ function OutboundModal({ item, onClose, onSuccess }: any) {
     try {
       await createOutboundTransaction({
         itemId: item.id,
-        quantity: Number(formData.get('quantity')),
+        quantityBase: Number(formData.get('quantityBase')),
         productionJobId: formData.get('productionJobId') as string || undefined,
         reason: formData.get('reason') as string || undefined,
         note: formData.get('note') as string || undefined,
@@ -543,12 +637,12 @@ function OutboundModal({ item, onClose, onSuccess }: any) {
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
           {error && <div className="p-3 bg-rose-50 text-rose-600 text-sm rounded-lg">{error}</div>}
           <div className="bg-slate-50 p-3 rounded-lg text-sm border border-slate-200">
-            Có thể dùng: <span className="font-bold text-emerald-600">{item.availableStock.toLocaleString('vi-VN')} {INVENTORY_UNITS[item.unit as keyof typeof INVENTORY_UNITS] || item.unit}</span>
+            Có thể dùng (Base): <span className="font-bold text-emerald-600">{formatIntegerBaseQuantity(item.availableStockBase)} {item.stockBaseUnit}</span>
           </div>
           <div className="space-y-4">
             <div>
-              <label className="block text-xs font-bold mb-1 text-slate-700">Số lượng xuất *</label>
-              <input name="quantity" type="number" min="1" required className="w-full p-2 border rounded-lg text-sm" />
+              <label className="block text-xs font-bold mb-1 text-slate-700">Số lượng xuất (Base Unit) *</label>
+              <input name="quantityBase" type="number" min="1" required className="w-full p-2 border rounded-lg text-sm" />
             </div>
             <div>
               <label className="block text-xs font-bold mb-1 text-slate-700">Lý do xuất *</label>
@@ -588,7 +682,7 @@ function AdjModal({ item, onClose, onSuccess }: any) {
       await createAdjustmentTransaction({
         itemId: item.id,
         type: formData.get('type') as 'ADJUSTMENT_INCREASE' | 'ADJUSTMENT_DECREASE',
-        quantity: Number(formData.get('quantity')),
+        quantityBase: Number(formData.get('quantityBase')),
         reason: formData.get('reason') as string,
         note: formData.get('note') as string || undefined,
       });
@@ -610,7 +704,7 @@ function AdjModal({ item, onClose, onSuccess }: any) {
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
           {error && <div className="p-3 bg-rose-50 text-rose-600 text-sm rounded-lg">{error}</div>}
           <div className="bg-slate-50 p-3 rounded-lg text-sm border border-slate-200">
-            Tồn thực tế: <span className="font-bold text-slate-700">{item.currentStock.toLocaleString('vi-VN')} {item.unit}</span>
+            Tồn thực tế (Base): <span className="font-bold text-slate-700">{formatIntegerBaseQuantity(item.currentStockBase)} {item.stockBaseUnit}</span>
           </div>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -622,8 +716,8 @@ function AdjModal({ item, onClose, onSuccess }: any) {
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-bold mb-1 text-slate-700">Số lượng chênh lệch *</label>
-                <input name="quantity" type="number" min="1" required className="w-full p-2 border rounded-lg text-sm" />
+                <label className="block text-xs font-bold mb-1 text-slate-700">Số lượng chênh lệch (Base Unit) *</label>
+                <input name="quantityBase" type="number" min="1" required className="w-full p-2 border rounded-lg text-sm" />
               </div>
             </div>
             <div>

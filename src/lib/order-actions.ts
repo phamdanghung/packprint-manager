@@ -2,6 +2,8 @@
 
 import { db } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
+import { syncCustomerAfterOrder } from '@/lib/crm-actions';
+import { createQuote } from './quote-actions';
 
 async function checkOrderAuth(allowedRoles: string[]) {
   const user = await getCurrentUser();
@@ -34,11 +36,18 @@ export async function convertQuoteToOrder(quoteId: string) {
 
     const quote = await db.quote.findUnique({
       where: { id: quoteId },
-      include: { items: true }
+      include: { items: true, customer: { select: { assignedSalesId: true } } }
     });
 
     if (!quote) return { success: false, error: 'Không tìm thấy báo giá' };
-    if (quote.status !== 'ACCEPTED') return { success: false, error: 'Chỉ báo giá ACCEPTED mới được chuyển thành đơn hàng' };
+    
+    if (auth.user!.role === 'SALES') {
+      if (quote.customer?.assignedSalesId && quote.customer.assignedSalesId !== auth.user!.id) {
+        return { success: false, error: 'Bạn không thể chuyển đổi báo giá của khách hàng do nhân viên Sales khác phụ trách.' };
+      }
+    }
+
+    if (quote.status !== 'APPROVED' && quote.status !== 'ACCEPTED') return { success: false, error: 'Chỉ báo giá đã được duyệt (APPROVED/ACCEPTED) mới có thể chuyển thành đơn hàng' };
 
     // Kiểm tra xem đã có đơn hàng nào link với quote này chưa
     const existingOrder = await db.order.findFirst({ where: { quoteId } });
@@ -100,6 +109,13 @@ export async function convertQuoteToOrder(quoteId: string) {
         }
       });
 
+      if (quote.status !== 'ACCEPTED') {
+        await tx.quote.update({
+          where: { id: quote.id },
+          data: { status: 'ACCEPTED' }
+        });
+      }
+
       await tx.quote.update({
         where: { id: quoteId },
         data: { status: 'CONVERTED' }
@@ -108,8 +124,13 @@ export async function convertQuoteToOrder(quoteId: string) {
       return newOrder;
     });
 
+    await syncCustomerAfterOrder(quote.customerId, order.totalAmount);
+
     return { success: true, data: order };
   } catch (error: any) {
+    if (error.code === 'P2002' && error.meta?.target?.includes('quoteId')) {
+      return { success: false, error: 'Báo giá này đã được chuyển thành đơn hàng (Unique constraint).' };
+    }
     return { success: false, error: error.message || 'Lỗi chuyển báo giá thành đơn hàng' };
   }
 }
@@ -127,6 +148,23 @@ export async function getOrders(filters?: any) {
       },
       orderBy: { createdAt: 'desc' }
     });
+
+    if (auth.user!.role === 'SALES') {
+      orders.forEach(order => {
+        order.totalCost = 0;
+        order.grossProfit = 0;
+        order.grossProfitRate = 0;
+        order.items.forEach(item => {
+          item.materialCost = 0;
+          item.laminationCost = 0;
+          item.dieCutCost = 0;
+          item.printingCost = 0;
+          item.costAmount = 0;
+          item.pricingDetails = null;
+        });
+      });
+    }
+
     return { success: true, data: orders };
   } catch (error: any) {
     return { success: false, error: error.message || 'Lỗi lấy danh sách đơn hàng' };
@@ -150,6 +188,21 @@ export async function getOrderById(id: string) {
       }
     });
     if (!order) return { success: false, error: 'Không tìm thấy đơn hàng' };
+
+    if (auth.user!.role === 'SALES') {
+      order.totalCost = 0;
+      order.grossProfit = 0;
+      order.grossProfitRate = 0;
+      order.items.forEach(item => {
+        item.materialCost = 0;
+        item.laminationCost = 0;
+        item.dieCutCost = 0;
+        item.printingCost = 0;
+        item.costAmount = 0;
+        item.pricingDetails = null;
+      });
+    }
+
     return { success: true, data: order };
   } catch (error: any) {
     return { success: false, error: error.message || 'Lỗi lấy đơn hàng' };
@@ -209,5 +262,35 @@ export async function updateOrderPayment(orderId: string, paidAmount: number) {
     return { success: true, data: updatedOrder };
   } catch (error: any) {
     return { success: false, error: error.message || 'Lỗi cập nhật thanh toán' };
+  }
+}
+
+export async function createDirectOrderFromCrm(quoteData: any) {
+  try {
+    const auth = await checkOrderAuth(['ADMIN', 'MANAGER', 'SALES']);
+    if (!auth.ok) return { success: false, error: auth.error };
+
+    quoteData.status = 'APPROVED';
+    quoteData.internalNote = quoteData.internalNote || 'CRM_DIRECT_ORDER: Tạo đơn trực tiếp từ CRM';
+    
+    const quoteRes = await createQuote(quoteData);
+    if (!quoteRes.success || !quoteRes.data) {
+      return { success: false, error: quoteRes.error || 'Lỗi tạo báo giá tự động' };
+    }
+
+    const convertRes = await convertQuoteToOrder(quoteRes.data.id);
+    if (!convertRes.success) {
+      // Rollback
+      await db.quote.update({
+        where: { id: quoteRes.data.id },
+        data: { status: 'CANCELLED', internalNote: 'Convert to order failed. Rollback.' }
+      });
+      return { success: false, error: convertRes.error || 'Lỗi chuyển đổi thành đơn hàng' };
+    }
+
+    return { success: true, data: convertRes.data };
+  } catch (error: any) {
+    console.error('Lỗi tạo direct order:', error);
+    return { success: false, error: error.message || 'Có lỗi xảy ra khi tạo đơn hàng trực tiếp' };
   }
 }

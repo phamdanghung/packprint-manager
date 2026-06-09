@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import Sidebar from '@/components/sidebar';
 import Header from '@/components/header';
 import { UserSession } from '@/lib/auth';
+import SalesMobileCTA from '@/components/sales-mobile-cta';
 
 interface LayoutWrapperProps {
   children: React.ReactNode;
@@ -16,8 +17,9 @@ interface LayoutWrapperProps {
 export default function LayoutWrapper({ children, user, pendingTaskCount, isDemoMode }: LayoutWrapperProps) {
   const pathname = usePathname();
   const isMobileAppRoute = pathname?.includes('/mobile');
+  const isPrintRoute = pathname?.includes('/print');
 
-  if (isMobileAppRoute) {
+  if (isMobileAppRoute || isPrintRoute) {
     return (
       <div className="min-h-screen bg-slate-50 text-slate-800 font-sans">
         {children}
@@ -39,6 +41,8 @@ export default function LayoutWrapper({ children, user, pendingTaskCount, isDemo
         <main className="flex-1 overflow-y-auto p-6 md:p-8 custom-scrollbar">
           {children}
         </main>
+        
+        {user.role === 'SALES' && <SalesMobileCTA role={user.role} />}
       </div>
     </div>
   );

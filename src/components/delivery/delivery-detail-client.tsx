@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { updateDeliveryStatus, markDelivered, markDeliveryFailed, assignDeliveryUser, scheduleDelivery, updateDeliveryInfo } from '@/lib/delivery-actions';
 import { createPayment } from '@/lib/payment-actions';
 import DeliveryLogViewer from './delivery-log';
@@ -184,6 +185,9 @@ export default function DeliveryDetailClient({ job, deliveryUsers, currentUserRo
         
         {/* Actions Container */}
         <div className="flex flex-wrap gap-2">
+          <Link href={`/dashboard/print/delivery-jobs/${job.id}`} className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-sm font-medium transition-colors">
+            In Phiếu Giao
+          </Link>
           {canEdit && (job.status === 'READY_FOR_DELIVERY' || job.status === 'FAILED') && (
             <button 
               onClick={() => setIsScheduling(!isScheduling)} 

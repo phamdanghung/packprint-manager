@@ -60,15 +60,18 @@ export async function getInventoryPageData() {
   
   const allActive = await db.inventoryItem.findMany({
     where: { status: 'ACTIVE' },
-    select: { currentStock: true, standardCost: true, minStock: true, availableStock: true }
+    select: { currentStockBase: true, reservedStockBase: true, standardCost: true, minStockBase: true, unitScale: true }
   });
 
-  const lowStockCount = allActive.filter(i => i.availableStock > 0 && i.availableStock <= i.minStock).length;
-  const outOfStockCount = allActive.filter(i => i.availableStock <= 0).length;
+  const lowStockCount = allActive.filter(i => {
+    const avail = i.currentStockBase - i.reservedStockBase;
+    return avail > 0 && avail <= i.minStockBase;
+  }).length;
+  const outOfStockCount = allActive.filter(i => (i.currentStockBase - i.reservedStockBase) <= 0).length;
   
   let totalValue = 0;
   if (canView) {
-    totalValue = allActive.reduce((sum, item) => sum + (item.currentStock * (item.standardCost || 0)), 0);
+    totalValue = allActive.reduce((sum, item) => sum + ((item.currentStockBase / item.unitScale) * (item.standardCost || 0)), 0);
   }
 
   return {
@@ -100,23 +103,32 @@ export async function getInventoryItems(filters: any = {}) {
   if (filters.materialType) where.materialType = filters.materialType;
   if (filters.status) where.status = filters.status;
   
-  if (filters.alert === 'LOW_STOCK') {
-    where.availableStock = { lte: db.inventoryItem.fields.minStock, gt: 0 };
-  } else if (filters.alert === 'OUT_OF_STOCK') {
-    where.availableStock = { lte: 0 };
-  }
+  const orderBy: Prisma.InventoryItemOrderByWithRelationInput = { createdAt: 'desc' };
 
-  const orderBy: Prisma.InventoryItemOrderByWithRelationInput = {};
-  if (filters.sortBy === 'stockAsc') orderBy.availableStock = 'asc';
-  else if (filters.sortBy === 'stockDesc') orderBy.availableStock = 'desc';
-  else orderBy.createdAt = 'desc';
-
-  const items = await db.inventoryItem.findMany({
+  let items = await db.inventoryItem.findMany({
     where,
     orderBy,
   });
 
-  return items.map(i => maskItemCost(i, canView));
+  if (filters.alert === 'LOW_STOCK') {
+    items = items.filter(i => {
+      const avail = i.currentStockBase - i.reservedStockBase;
+      return avail > 0 && avail <= i.minStockBase;
+    });
+  } else if (filters.alert === 'OUT_OF_STOCK') {
+    items = items.filter(i => (i.currentStockBase - i.reservedStockBase) <= 0);
+  }
+
+  if (filters.sortBy === 'stockAsc') {
+    items.sort((a, b) => (a.currentStockBase - a.reservedStockBase) - (b.currentStockBase - b.reservedStockBase));
+  } else if (filters.sortBy === 'stockDesc') {
+    items.sort((a, b) => (b.currentStockBase - b.reservedStockBase) - (a.currentStockBase - a.reservedStockBase));
+  }
+
+  return items.map(i => maskItemCost({
+    ...i,
+    availableStockBase: i.currentStockBase - i.reservedStockBase
+  }, canView));
 }
 
 /**
@@ -126,7 +138,7 @@ export async function createInventoryItem(input: any) {
   const user = await checkInventoryAccess();
   if (user.role === 'PRODUCTION') throw new Error('Không có quyền tạo vật tư');
 
-  const { initialStock, ...data } = input;
+  const { initialStockBase, ...data } = input;
   
   if (data.standardCost && !canViewCost(user.role)) {
     delete data.standardCost;
@@ -141,18 +153,18 @@ export async function createInventoryItem(input: any) {
       data: {
         ...data,
         supplierName: input.supplierName || null,
-        currentStock: 0,
-        availableStock: 0,
+        currentStockBase: 0,
+        reservedStockBase: 0,
+        minStockBase: input.minStockBase || 0,
         createdById: user.id
       }
     });
 
-    if (initialStock && initialStock > 0) {
+    if (initialStockBase && initialStockBase > 0) {
       await tx.inventoryItem.update({
         where: { id: newItem.id },
         data: {
-          currentStock: initialStock,
-          availableStock: initialStock
+          currentStockBase: initialStockBase,
         }
       });
       
@@ -162,9 +174,9 @@ export async function createInventoryItem(input: any) {
           transactionCode: txCode,
           itemId: newItem.id,
           type: 'ADJUSTMENT_INCREASE',
-          quantity: initialStock,
+          quantity: initialStockBase,
           stockBefore: 0,
-          stockAfter: initialStock,
+          stockAfter: initialStockBase,
           reason: 'Tồn đầu kỳ',
           referenceType: 'MANUAL_ADJUSTMENT',
           createdById: user.id
@@ -230,7 +242,8 @@ export async function updateInventoryItem(id: string, input: any) {
  */
 export async function createInboundTransaction(input: {
   itemId: string;
-  quantity: number;
+  purchaseQuantity: number;
+  rollLengthM?: number;
   unitCost?: number;
   referenceCode?: string;
   note?: string;
@@ -240,24 +253,34 @@ export async function createInboundTransaction(input: {
   const user = await checkInventoryAccess();
   if (user.role === 'PRODUCTION') throw new Error('Không có quyền nhập kho');
 
-  const qty = Math.abs(input.quantity);
-  
   const txRecord = await db.$transaction(async (tx) => {
     const item = await tx.inventoryItem.findUnique({ where: { id: input.itemId } });
     if (!item) throw new Error('Vật tư không tồn tại');
 
-    const stockBefore = item.currentStock;
-    const stockAfter = stockBefore + qty;
-    const availableStock = stockAfter - item.reservedStock;
+    if (input.purchaseQuantity <= 0) throw new Error('Số lượng mua phải > 0');
+    
+    let qtyBase = 0;
+    if (item.purchaseUnit === 'ROLL' || item.displayUnit === 'ROLL' || item.stockBaseUnit === 'MILLIMETER') {
+      if (!input.rollLengthM || input.rollLengthM <= 0) throw new Error('Chiều dài cuộn phải > 0');
+      // ROLL -> MM
+      qtyBase = Math.round(input.purchaseQuantity * input.rollLengthM * 1000);
+    } else {
+      qtyBase = Math.round(input.purchaseQuantity * item.unitScale);
+    }
+
+    if (qtyBase <= 0) throw new Error('Số lượng quy đổi (Base Unit) phải > 0');
+
+    const stockBefore = item.currentStockBase;
+    const stockAfter = stockBefore + qtyBase;
     
     // Update Item
     await tx.inventoryItem.update({
       where: { id: item.id },
       data: {
-        currentStock: stockAfter,
-        availableStock: availableStock,
+        currentStockBase: stockAfter,
         lastPurchaseCost: input.unitCost || item.lastPurchaseCost,
         supplierName: input.supplierName || item.supplierName,
+        rollLengthM: input.rollLengthM || item.rollLengthM,
       }
     });
 
@@ -267,9 +290,11 @@ export async function createInboundTransaction(input: {
         transactionCode: txCode,
         itemId: item.id,
         type: 'INBOUND',
-        quantity: qty,
+        quantity: qtyBase,
+        purchaseQuantity: input.purchaseQuantity,
+        purchaseUnit: item.purchaseUnit || item.displayUnit || item.unit,
         unitCost: input.unitCost,
-        totalCost: input.unitCost ? input.unitCost * qty : null,
+        totalCost: input.unitCost ? input.unitCost * input.purchaseQuantity : null,
         stockBefore,
         stockAfter,
         referenceType: 'PURCHASE',
@@ -299,7 +324,7 @@ export async function createInboundTransaction(input: {
  */
 export async function createOutboundTransaction(input: {
   itemId: string;
-  quantity: number;
+  quantityBase: number;
   productionJobId?: string;
   orderId?: string;
   reason?: string;
@@ -308,25 +333,24 @@ export async function createOutboundTransaction(input: {
   const user = await checkInventoryAccess();
   if (user.role === 'ACCOUNTANT') throw new Error('Kế toán không được xuất kho trực tiếp');
 
-  const qty = Math.abs(input.quantity);
+  const qtyBase = Math.abs(input.quantityBase);
   
   const txRecord = await db.$transaction(async (tx) => {
     const item = await tx.inventoryItem.findUnique({ where: { id: input.itemId } });
     if (!item) throw new Error('Vật tư không tồn tại');
 
-    if (item.availableStock < qty) {
-      throw new Error(`Kho không đủ. Chỉ còn ${item.availableStock}`);
+    const availableStock = item.currentStockBase - item.reservedStockBase;
+    if (availableStock < qtyBase) {
+      throw new Error(`Kho không đủ. Chỉ còn ${availableStock}`);
     }
 
-    const stockBefore = item.currentStock;
-    const stockAfter = stockBefore - qty;
-    const availableStock = stockAfter - item.reservedStock;
+    const stockBefore = item.currentStockBase;
+    const stockAfter = stockBefore - qtyBase;
     
     await tx.inventoryItem.update({
       where: { id: item.id },
       data: {
-        currentStock: stockAfter,
-        availableStock: availableStock,
+        currentStockBase: stockAfter,
       }
     });
 
@@ -336,7 +360,7 @@ export async function createOutboundTransaction(input: {
         transactionCode: txCode,
         itemId: item.id,
         type: 'OUTBOUND',
-        quantity: qty,
+        quantity: qtyBase,
         stockBefore,
         stockAfter,
         referenceType: input.productionJobId ? 'PRODUCTION_JOB' : (input.orderId ? 'ORDER' : 'OTHER'),
@@ -368,7 +392,7 @@ export async function createOutboundTransaction(input: {
 export async function createAdjustmentTransaction(input: {
   itemId: string;
   type: 'ADJUSTMENT_INCREASE' | 'ADJUSTMENT_DECREASE';
-  quantity: number;
+  quantityBase: number;
   reason: string;
   note?: string;
 }) {
@@ -376,31 +400,28 @@ export async function createAdjustmentTransaction(input: {
   if (user.role === 'PRODUCTION') throw new Error('Không có quyền điều chỉnh tồn kho');
   if (!input.reason) throw new Error('Bắt buộc phải nhập lý do điều chỉnh');
 
-  const qty = Math.abs(input.quantity);
+  const qtyBase = Math.abs(input.quantityBase);
   
   const txRecord = await db.$transaction(async (tx) => {
     const item = await tx.inventoryItem.findUnique({ where: { id: input.itemId } });
     if (!item) throw new Error('Vật tư không tồn tại');
 
-    const stockBefore = item.currentStock;
+    const stockBefore = item.currentStockBase;
     let stockAfter = stockBefore;
 
     if (input.type === 'ADJUSTMENT_INCREASE') {
-      stockAfter += qty;
+      stockAfter += qtyBase;
     } else {
-      if (stockBefore - qty < item.reservedStock) {
+      if (stockBefore - qtyBase < item.reservedStockBase) {
         throw new Error('Không thể giảm tồn xuống thấp hơn lượng đã giữ (reserved)');
       }
-      stockAfter -= qty;
+      stockAfter -= qtyBase;
     }
 
-    const availableStock = stockAfter - item.reservedStock;
-    
     await tx.inventoryItem.update({
       where: { id: item.id },
       data: {
-        currentStock: stockAfter,
-        availableStock: availableStock,
+        currentStockBase: stockAfter,
       }
     });
 
@@ -410,7 +431,7 @@ export async function createAdjustmentTransaction(input: {
         transactionCode: txCode,
         itemId: item.id,
         type: input.type,
-        quantity: qty,
+        quantity: qtyBase,
         stockBefore,
         stockAfter,
         referenceType: 'MANUAL_ADJUSTMENT',
@@ -462,25 +483,25 @@ export async function getInventoryTransactions(filters: any = {}) {
 /**
  * Reservation Logic
  */
-export async function reserveInventory(input: { itemId: string; quantity: number; productionJobId?: string; orderId?: string; note?: string; }) {
+export async function reserveInventory(input: { itemId: string; quantityBase: number; productionJobId?: string; orderId?: string; note?: string; }) {
   const user = await checkInventoryAccess();
   if (user.role === 'PRODUCTION' && !input.productionJobId) throw new Error('Production chỉ được reserve cho Job');
 
-  const qty = Math.abs(input.quantity);
+  const qtyBase = Math.abs(input.quantityBase);
 
   const reservation = await db.$transaction(async (tx) => {
     const item = await tx.inventoryItem.findUnique({ where: { id: input.itemId } });
     if (!item) throw new Error('Vật tư không tồn tại');
-    if (item.availableStock < qty) throw new Error(`Kho không đủ để giữ. Chỉ còn ${item.availableStock}`);
+    
+    const availableStock = item.currentStockBase - item.reservedStockBase;
+    if (availableStock < qtyBase) throw new Error(`Kho không đủ để giữ. Chỉ còn ${availableStock}`);
 
-    const newReserved = item.reservedStock + qty;
-    const newAvailable = item.currentStock - newReserved;
+    const newReserved = item.reservedStockBase + qtyBase;
 
     await tx.inventoryItem.update({
       where: { id: item.id },
       data: {
-        reservedStock: newReserved,
-        availableStock: newAvailable,
+        reservedStockBase: newReserved,
       }
     });
 
@@ -489,7 +510,7 @@ export async function reserveInventory(input: { itemId: string; quantity: number
         itemId: item.id,
         productionJobId: input.productionJobId,
         orderId: input.orderId,
-        quantity: qty,
+        quantity: qtyBase,
         status: 'RESERVED',
         note: input.note,
         createdById: user.id
@@ -502,9 +523,9 @@ export async function reserveInventory(input: { itemId: string; quantity: number
         transactionCode: txCode,
         itemId: item.id,
         type: 'RESERVE',
-        quantity: qty,
-        stockBefore: item.currentStock,
-        stockAfter: item.currentStock,
+        quantity: qtyBase,
+        stockBefore: item.currentStockBase,
+        stockAfter: item.currentStockBase,
         referenceType: 'PRODUCTION_JOB',
         referenceId: res.id,
         createdById: user.id
@@ -527,12 +548,11 @@ export async function releaseReservation(reservationId: string) {
     if (!reservation || reservation.status !== 'RESERVED') throw new Error('Không hợp lệ');
 
     const item = reservation.item;
-    const newReserved = item.reservedStock - reservation.quantity;
-    const newAvailable = item.currentStock - newReserved;
+    const newReserved = item.reservedStockBase - reservation.quantity;
 
     await tx.inventoryItem.update({
       where: { id: item.id },
-      data: { reservedStock: newReserved, availableStock: newAvailable }
+      data: { reservedStockBase: newReserved }
     });
 
     const updatedRes = await tx.inventoryReservation.update({
@@ -546,8 +566,8 @@ export async function releaseReservation(reservationId: string) {
         itemId: item.id,
         type: 'RELEASE_RESERVE',
         quantity: reservation.quantity,
-        stockBefore: item.currentStock,
-        stockAfter: item.currentStock,
+        stockBefore: item.currentStockBase,
+        stockAfter: item.currentStockBase,
         referenceType: 'PRODUCTION_JOB',
         referenceId: reservation.id,
         createdById: user.id
@@ -570,13 +590,12 @@ export async function consumeReservation(reservationId: string) {
     if (!reservation || reservation.status !== 'RESERVED') throw new Error('Không hợp lệ');
 
     const item = reservation.item;
-    const newReserved = item.reservedStock - reservation.quantity;
-    const newCurrent = item.currentStock - reservation.quantity;
-    const newAvailable = newCurrent - newReserved;
+    const newReserved = item.reservedStockBase - reservation.quantity;
+    const newCurrent = item.currentStockBase - reservation.quantity;
 
     await tx.inventoryItem.update({
       where: { id: item.id },
-      data: { reservedStock: newReserved, currentStock: newCurrent, availableStock: newAvailable }
+      data: { reservedStockBase: newReserved, currentStockBase: newCurrent }
     });
 
     const updatedRes = await tx.inventoryReservation.update({
@@ -590,7 +609,7 @@ export async function consumeReservation(reservationId: string) {
         itemId: item.id,
         type: 'CONSUME_RESERVED',
         quantity: reservation.quantity,
-        stockBefore: item.currentStock,
+        stockBefore: item.currentStockBase,
         stockAfter: newCurrent,
         referenceType: 'PRODUCTION_JOB',
         referenceId: reservation.id,
@@ -605,3 +624,260 @@ export async function consumeReservation(reservationId: string) {
   revalidatePath('/dashboard/inventory');
   return { success: true };
 }
+
+/**
+ * Convert Material (Parent Sheet to Child Sheet)
+ */
+export async function convertMaterial(input: {
+  fromMaterialId: string;
+  toMaterialId: string;
+  fromQuantityBase: number;
+  toQuantityBase: number;
+  wasteQuantityBase: number;
+  note?: string;
+}) {
+  const user = await checkInventoryAccess();
+  if (user.role === 'ACCOUNTANT') throw new Error('Kế toán không được thao tác kho');
+
+  const { fromMaterialId, toMaterialId, fromQuantityBase, toQuantityBase, wasteQuantityBase } = input;
+
+  const result = await db.$transaction(async (tx) => {
+    const fromItem = await tx.inventoryItem.findUnique({ where: { id: fromMaterialId } });
+    if (!fromItem) throw new Error('Vật tư nguồn không tồn tại');
+    const toItem = await tx.inventoryItem.findUnique({ where: { id: toMaterialId } });
+    if (!toItem) throw new Error('Vật tư đích không tồn tại');
+
+    const fromAvailable = fromItem.currentStockBase - fromItem.reservedStockBase;
+    if (fromAvailable < fromQuantityBase) {
+      throw new Error(`Kho không đủ vật tư nguồn. Chỉ còn ${fromAvailable}`);
+    }
+
+    const conversion = await tx.inventoryConversion.create({
+      data: {
+        fromMaterialId,
+        fromQuantityBase,
+        wasteQuantityBase,
+        note: input.note,
+        createdById: user.id,
+      }
+    });
+
+    await tx.inventoryConversionOutputLine.create({
+      data: {
+        conversionId: conversion.id,
+        toMaterialId,
+        toQuantityBase,
+      }
+    });
+
+    const fromStockBefore = fromItem.currentStockBase;
+    const fromStockAfter = fromStockBefore - fromQuantityBase;
+    await tx.inventoryItem.update({
+      where: { id: fromItem.id },
+      data: { currentStockBase: fromStockAfter }
+    });
+
+    await tx.inventoryTransaction.create({
+      data: {
+        transactionCode: `CVO-${Date.now()}`,
+        itemId: fromMaterialId,
+        type: 'CONVERT_OUT',
+        quantity: fromQuantityBase,
+        stockBefore: fromStockBefore,
+        stockAfter: fromStockAfter,
+        referenceType: 'CONVERSION',
+        referenceId: conversion.id,
+        createdById: user.id
+      }
+    });
+
+    const toStockBefore = toItem.currentStockBase;
+    const toStockAfter = toStockBefore + toQuantityBase;
+    await tx.inventoryItem.update({
+      where: { id: toItem.id },
+      data: { currentStockBase: toStockAfter }
+    });
+
+    await tx.inventoryTransaction.create({
+      data: {
+        transactionCode: `CVI-${Date.now()}`,
+        itemId: toMaterialId,
+        type: 'CONVERT_IN',
+        quantity: toQuantityBase,
+        stockBefore: toStockBefore,
+        stockAfter: toStockAfter,
+        referenceType: 'CONVERSION',
+        referenceId: conversion.id,
+        createdById: user.id
+      }
+    });
+
+    if (wasteQuantityBase > 0) {
+      await tx.inventoryTransaction.create({
+        data: {
+          transactionCode: `CVW-${Date.now()}`,
+          itemId: fromMaterialId,
+          type: 'CUTTING_WASTE',
+          quantity: wasteQuantityBase,
+          stockBefore: fromStockAfter,
+          stockAfter: fromStockAfter,
+          referenceType: 'CONVERSION',
+          referenceId: conversion.id,
+          createdById: user.id
+        }
+      });
+    }
+
+    return conversion;
+  });
+
+  await createAuditLog({
+    action: 'INVENTORY_CONVERTED',
+    entityType: 'InventoryConversion',
+    entityId: result.id,
+    actorId: user.id,
+  });
+
+  revalidatePath('/dashboard/inventory');
+  return { success: true };
+}
+
+/**
+ * Calculate Film Consumption in Base Unit (Millimeter)
+ */
+export async function calculateFilmConsumption(totalSheets: number, feedLengthCm: number, wasteRate: number) {
+  // e.g. 100 sheets * 35cm (350mm) * 1.05 = 36750mm
+  const feedLengthMm = feedLengthCm * 10;
+  const requiredMm = totalSheets * feedLengthMm * (1 + wasteRate);
+  return Math.ceil(requiredMm);
+}
+
+
+/**
+ * Phase 22A.4: Create Conversion for Order
+ */
+export async function createConversionForOrder(input: {
+  orderId?: string;
+  productionJobId?: string;
+  childMaterialId: string;
+  parentMaterialId: string;
+  requiredChildQtyBase: number;
+  recipeId: string;
+  note?: string;
+}) {
+  const user = await checkInventoryAccess();
+  
+  if (['SALES', 'DESIGNER', 'DELIVERY'].includes(user.role)) {
+    throw new Error('Không có quyền tạo phiếu cắt giấy');
+  }
+
+  const { orderId, productionJobId, childMaterialId, parentMaterialId, requiredChildQtyBase, recipeId } = input;
+
+  const result = await db.$transaction(async (tx) => {
+    const parentItem = await tx.inventoryItem.findUnique({ where: { id: parentMaterialId } });
+    if (!parentItem) throw new Error('Vật tư mẹ không tồn tại');
+    
+    const childItem = await tx.inventoryItem.findUnique({ where: { id: childMaterialId } });
+    if (!childItem) throw new Error('Vật tư con không tồn tại');
+
+    const recipe = await tx.materialConversionRecipe.findUnique({ where: { id: recipeId } });
+    if (!recipe || !recipe.isActive || recipe.fromMaterialId !== parentMaterialId || recipe.toMaterialId !== childMaterialId) {
+      throw new Error('Định mức cắt không hợp lệ hoặc đã bị vô hiệu hóa');
+    }
+
+    const requiredParentQtyBase = Math.ceil(requiredChildQtyBase / recipe.piecesPerParentSheet);
+    const expectedChildQtyBase = requiredParentQtyBase * recipe.piecesPerParentSheet;
+    const wasteChildQtyBase = expectedChildQtyBase - requiredChildQtyBase;
+
+    const parentAvailable = parentItem.currentStockBase - parentItem.reservedStockBase;
+    if (parentAvailable < requiredParentQtyBase) {
+      throw new Error(`Kho không đủ vật tư mẹ. Cần ${requiredParentQtyBase}, chỉ còn ${parentAvailable}`);
+    }
+
+    const conversion = await tx.inventoryConversion.create({
+      data: {
+        fromMaterialId: parentMaterialId,
+        fromQuantityBase: requiredParentQtyBase,
+        wasteQuantityBase: 0, // wasteChildQtyBase is recorded in note instead of CUTTING_WASTE to keep them in stock
+        note: input.note ? `${input.note} (Dư sau cắt: ${wasteChildQtyBase})` : `Dư sau cắt: ${wasteChildQtyBase}`,
+        orderId,
+        productionJobId,
+        status: 'COMPLETED',
+        confirmedById: user.id,
+        confirmedAt: new Date(),
+        createdById: user.id,
+      }
+    });
+
+    await tx.inventoryConversionOutputLine.create({
+      data: {
+        conversionId: conversion.id,
+        toMaterialId: childMaterialId,
+        toQuantityBase: expectedChildQtyBase,
+      }
+    });
+
+    const parentStockBefore = parentItem.currentStockBase;
+    const parentStockAfter = parentStockBefore - requiredParentQtyBase;
+    await tx.inventoryItem.update({
+      where: { id: parentItem.id },
+      data: { currentStockBase: parentStockAfter }
+    });
+
+    await tx.inventoryTransaction.create({
+      data: {
+        transactionCode: `CVO-${Date.now()}`,
+        itemId: parentMaterialId,
+        type: 'CONVERT_OUT',
+        quantity: requiredParentQtyBase,
+        stockBefore: parentStockBefore,
+        stockAfter: parentStockAfter,
+        referenceType: 'CONVERSION',
+        referenceId: conversion.id,
+        conversionId: conversion.id,
+        orderId,
+        productionJobId,
+        createdById: user.id
+      }
+    });
+
+    const childStockBefore = childItem.currentStockBase;
+    const childStockAfter = childStockBefore + expectedChildQtyBase;
+    await tx.inventoryItem.update({
+      where: { id: childItem.id },
+      data: { currentStockBase: childStockAfter }
+    });
+
+    await tx.inventoryTransaction.create({
+      data: {
+        transactionCode: `CVI-${Date.now()}`,
+        itemId: childMaterialId,
+        type: 'CONVERT_IN',
+        quantity: expectedChildQtyBase,
+        stockBefore: childStockBefore,
+        stockAfter: childStockAfter,
+        referenceType: 'CONVERSION',
+        referenceId: conversion.id,
+        conversionId: conversion.id,
+        orderId,
+        productionJobId,
+        createdById: user.id
+      }
+    });
+
+    return { conversion, parentConsumedQtyBase: requiredParentQtyBase, childCreatedQtyBase: expectedChildQtyBase, wasteChildQtyBase };
+  });
+
+  await createAuditLog({
+    action: 'INVENTORY_ORDER_CONVERSION_CREATED',
+    entityType: 'InventoryConversion',
+    entityId: result.conversion.id,
+    actorId: user.id,
+  });
+
+  revalidatePath('/dashboard/inventory');
+  revalidatePath('/dashboard/orders');
+  revalidatePath('/dashboard/production');
+  return { success: true, ...result };
+}
+

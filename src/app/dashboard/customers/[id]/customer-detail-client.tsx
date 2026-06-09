@@ -105,17 +105,9 @@ export default function CustomerDetailClient({ customer, userRole }: CustomerDet
   const totalQuotesCount = customer.quotes?.length || 0;
   const totalOrdersCount = customer.orders?.length || 0;
   
-  const totalRevenue = customer.orders?.reduce((acc: number, curr: any) => {
-    // Chỉ tính doanh số của các đơn hàng không bị hủy
-    if (curr.status !== 'CANCELLED') {
-      return acc + curr.totalAmount;
-    }
-    return acc;
-  }, 0) || 0;
+  const totalRevenue = customer.totalRevenue || 0;
 
-  const lastPurchaseDate = customer.orders?.length > 0 
-    ? customer.orders[0].createdAt 
-    : null;
+  const lastPurchaseDate = customer.lastOrderAt;
 
   // Thu thập lịch sử thanh toán thực tế của khách hàng từ các đơn hàng
   const paymentHistory: any[] = [];
@@ -216,6 +208,20 @@ export default function CustomerDetailClient({ customer, userRole }: CustomerDet
         </Link>
       </div>
 
+      {customer.reactivation && customer.reactivation.level !== 'NONE' && (
+        <div className={`p-4 rounded-xl border flex items-start gap-3 shadow-sm ${
+          customer.reactivation.severity === 'critical' ? 'bg-rose-50 border-rose-200 text-rose-800' :
+          customer.reactivation.severity === 'danger' ? 'bg-orange-50 border-orange-200 text-orange-800' :
+          'bg-amber-50 border-amber-200 text-amber-800'
+        }`}>
+          <AlertCircle className="w-5 h-5 mt-0.5 shrink-0" />
+          <div className="flex-1">
+            <h4 className="font-bold">{customer.reactivation.label}</h4>
+            <p className="text-sm mt-1">{customer.reactivation.reason}</p>
+          </div>
+        </div>
+      )}
+
       {/* Customer Hero Card */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 rounded-3xl p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="flex items-start gap-4">
@@ -265,6 +271,46 @@ export default function CustomerDetailClient({ customer, userRole }: CustomerDet
             <span>Sửa hồ sơ khách</span>
           </button>
         )}
+      </div>
+
+      {/* Quick Actions */}
+      <div className="grid grid-cols-2 md:flex md:flex-wrap items-center gap-2">
+        <Link 
+          href={`/dashboard/quotes/new?customerId=${customer.id}`}
+          className="flex-1 md:flex-none flex justify-center items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold bg-blue-50 hover:bg-blue-100 text-blue-700 transition-colors"
+        >
+          <FileText className="h-4 w-4" /> Báo giá
+        </Link>
+        <Link 
+          href={`/dashboard/orders/new?customerId=${customer.id}`}
+          className="flex-1 md:flex-none flex justify-center items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-colors"
+        >
+          <Tag className="h-4 w-4" /> Đơn hàng
+        </Link>
+        <button 
+          onClick={() => {
+            const tabsContainer = document.getElementById('crm-tabs');
+            if (tabsContainer) {
+              tabsContainer.scrollIntoView({ behavior: 'smooth' });
+            }
+            setActiveTab('follow-ups');
+          }}
+          className="flex-1 md:flex-none flex justify-center items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-700 transition-colors cursor-pointer"
+        >
+          <Calendar className="h-4 w-4" /> Lịch hẹn
+        </button>
+        <button 
+          onClick={() => {
+            const tabsContainer = document.getElementById('crm-tabs');
+            if (tabsContainer) {
+              tabsContainer.scrollIntoView({ behavior: 'smooth' });
+            }
+            setActiveTab('notes');
+          }}
+          className="flex-1 md:flex-none flex justify-center items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition-colors cursor-pointer"
+        >
+          <Edit3 className="h-4 w-4" /> Ghi chú
+        </button>
       </div>
 
       {/* 5 Financial Statistical Cards */}
@@ -771,9 +817,13 @@ export default function CustomerDetailClient({ customer, userRole }: CustomerDet
               </div>
             </div>
 
-            {/* Tóm tắt nợ (Sidebar phải) */}
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 rounded-3xl p-6 shadow-sm space-y-4 h-fit">
-              <h4 className="text-xs font-bold text-slate-855 dark:text-white uppercase tracking-wider">Tổng quan công nợ khách</h4>
+              <div className="flex justify-between items-center">
+                <h4 className="text-xs font-bold text-slate-855 dark:text-white uppercase tracking-wider">Tổng quan công nợ khách</h4>
+                <Link href={`/dashboard/print/customers/${customer.id}/debt-statement`} className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-bold transition-colors">
+                  In Đối Chiếu
+                </Link>
+              </div>
               <div className="space-y-3.5 text-xs">
                 <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/40 border border-slate-100 dark:border-slate-900/30">
                   <span className="text-slate-500 block mb-1">Tổng công nợ hiện tại:</span>

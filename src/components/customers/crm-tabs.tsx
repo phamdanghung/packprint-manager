@@ -4,8 +4,9 @@ import React, { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   User as UserIcon, Phone, Mail, MapPin, Edit, Clock,
-  Calendar, MessageSquare, PhoneCall, Link as LinkIcon, Lock, Pin, CheckCircle, Plus
+  Calendar, MessageSquare, PhoneCall, Link as LinkIcon, Lock, Pin, CheckCircle, Plus, AlertTriangle, FileText, Tag
 } from 'lucide-react';
+import Link from 'next/link';
 import { 
   updateCustomerCrmProfile, 
   createCustomerNote, updateCustomerNote, deleteCustomerNote, pinCustomerNote,
@@ -172,8 +173,19 @@ export default function CustomerCrmTabs({
           } else if (item.type === 'ORDER') {
             icon = <LinkIcon className="w-4 h-4" />; color = "bg-indigo-100 text-indigo-600";
             title = `Tạo đơn hàng ${item.data.orderCode}`; desc = `${item.data.totalAmount.toLocaleString()} đ`;
+          } else if (item.type === 'QUOTE') {
+            icon = <MessageSquare className="w-4 h-4" />; color = "bg-sky-100 text-sky-600";
+            title = `Tạo báo giá ${item.data.quoteCode || ''}`; desc = "Báo giá mới";
+          } else if (item.type === 'PAYMENT') {
+            icon = <CheckCircle className="w-4 h-4" />; color = "bg-green-100 text-green-600";
+            title = `Thanh toán ${item.data.paymentCode || ''}`; desc = "Cập nhật thanh toán";
+          } else {
+            icon = <Clock className="w-4 h-4" />; color = "bg-slate-100 text-slate-500";
+            title = "Hoạt động CRM"; desc = "Cập nhật dữ liệu khách hàng";
           }
 
+          if (!title) title = "Hoạt động CRM";
+          
           return (
             <div key={idx} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
               <div className={`flex items-center justify-center w-10 h-10 rounded-full border-4 border-white dark:border-slate-900 shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 shadow-sm ${color}`}>
@@ -212,16 +224,18 @@ export default function CustomerCrmTabs({
           });
         }} id="note-form" className="bg-white p-4 rounded-xl border space-y-3">
           <textarea name="content" required placeholder="Nội dung ghi chú..." className="w-full p-2 border rounded text-sm min-h-[80px]" />
-          <div className="flex gap-4 items-center">
-            <select name="type" className="p-2 border rounded text-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            <select name="type" className="p-2 border rounded text-sm w-full sm:w-auto">
               <option value="GENERAL">Chung</option>
               <option value="SALES_NOTE">Sales</option>
               {userRole === 'ACCOUNTANT' && <option value="ACCOUNTING_NOTE">Kế toán</option>}
             </select>
-            <label className="flex items-center gap-1 text-sm"><input type="checkbox" name="isPrivate" /> Riêng tư <Lock className="w-3 h-3 text-slate-400"/></label>
-            <label className="flex items-center gap-1 text-sm"><input type="checkbox" name="isPinned" /> Ghim <Pin className="w-3 h-3 text-slate-400"/></label>
-            <div className="flex-1 text-right">
-              <button type="submit" disabled={isPending} className="bg-indigo-600 text-white px-4 py-2 rounded font-bold text-sm">Thêm ghi chú</button>
+            <div className="flex items-center gap-4 shrink-0">
+              <label className="flex items-center gap-1 text-sm"><input type="checkbox" name="isPrivate" /> Riêng tư <Lock className="w-3 h-3 text-slate-400"/></label>
+              <label className="flex items-center gap-1 text-sm"><input type="checkbox" name="isPinned" /> Ghim <Pin className="w-3 h-3 text-slate-400"/></label>
+            </div>
+            <div className="w-full sm:w-auto sm:ml-auto">
+              <button type="submit" disabled={isPending} className="w-full sm:w-auto bg-indigo-600 text-white px-4 py-2 rounded font-bold text-sm">Thêm ghi chú</button>
             </div>
           </div>
         </form>
@@ -267,22 +281,22 @@ export default function CustomerCrmTabs({
             } catch(e:any) { alert(e.message); }
           });
         }} className="bg-white p-4 rounded-xl border space-y-3">
-          <div className="grid grid-cols-2 gap-4">
-            <input name="title" required placeholder="Tiêu đề tương tác (VD: Gọi điện tư vấn giá)" className="col-span-2 p-2 border rounded text-sm" />
-            <select name="channel" className="p-2 border rounded text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <input name="title" required placeholder="Tiêu đề tương tác (VD: Gọi điện tư vấn giá)" className="col-span-1 sm:col-span-2 p-2 border rounded text-sm w-full" />
+            <select name="channel" className="p-2 border rounded text-sm w-full">
               <option value="PHONE">Điện thoại</option>
               <option value="ZALO">Zalo</option>
               <option value="MEETING">Gặp trực tiếp</option>
             </select>
-            <select name="direction" className="p-2 border rounded text-sm">
+            <select name="direction" className="p-2 border rounded text-sm w-full">
               <option value="OUTBOUND">Khách gọi đến</option>
               <option value="INBOUND">Chủ động gọi đi</option>
             </select>
-            <input type="datetime-local" name="contactedAt" required defaultValue={new Date().toISOString().slice(0,16)} className="p-2 border rounded text-sm" />
-            <input name="outcome" placeholder="Kết quả (VD: Khách chốt giá)" className="p-2 border rounded text-sm" />
+            <input type="datetime-local" name="contactedAt" required defaultValue={new Date().toISOString().slice(0,16)} className="p-2 border rounded text-sm w-full" />
+            <input name="outcome" placeholder="Kết quả (VD: Khách chốt giá)" className="p-2 border rounded text-sm w-full" />
           </div>
           <textarea name="content" placeholder="Chi tiết tương tác..." className="w-full p-2 border rounded text-sm" />
-          <button type="submit" disabled={isPending} className="bg-indigo-600 text-white px-4 py-2 rounded font-bold text-sm">Lưu tương tác</button>
+          <button type="submit" disabled={isPending} className="w-full sm:w-auto bg-indigo-600 text-white px-4 py-2 rounded font-bold text-sm">Lưu tương tác</button>
         </form>
 
         <div className="grid gap-3">
@@ -317,17 +331,17 @@ export default function CustomerCrmTabs({
             } catch(e:any) { alert(e.message); }
           });
         }} className="bg-white p-4 rounded-xl border space-y-3">
-          <div className="grid grid-cols-2 gap-4">
-            <input name="title" required placeholder="Tiêu đề follow-up" className="col-span-2 p-2 border rounded text-sm" />
-            <input type="datetime-local" name="dueAt" required className="p-2 border rounded text-sm" />
-            <select name="priority" className="p-2 border rounded text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <input name="title" required placeholder="Tiêu đề follow-up" className="col-span-1 sm:col-span-2 p-2 border rounded text-sm w-full" />
+            <input type="datetime-local" name="dueAt" required className="p-2 border rounded text-sm w-full" />
+            <select name="priority" className="p-2 border rounded text-sm w-full">
               <option value="NORMAL">Bình thường</option>
               <option value="HIGH">Cao</option>
               <option value="URGENT">Khẩn cấp</option>
             </select>
           </div>
           <textarea name="note" placeholder="Ghi chú thêm..." className="w-full p-2 border rounded text-sm" />
-          <button type="submit" disabled={isPending} className="bg-amber-500 text-white px-4 py-2 rounded font-bold text-sm">Tạo lịch nhắc</button>
+          <button type="submit" disabled={isPending} className="w-full sm:w-auto bg-amber-500 text-white px-4 py-2 rounded font-bold text-sm">Tạo lịch nhắc</button>
         </form>
 
         <div className="grid gap-3">
@@ -359,29 +373,75 @@ export default function CustomerCrmTabs({
 
   return (
     <div className="max-w-6xl mx-auto flex flex-col h-full space-y-6">
-      <div className="flex items-center gap-4 bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
-        <div className="w-16 h-16 rounded-full bg-teal-100 flex items-center justify-center text-teal-600 text-2xl font-bold">
-          {customer.name.charAt(0)}
-        </div>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold">{customer.name}</h1>
-          <div className="flex gap-4 mt-2 text-sm text-slate-500">
-            <span className="flex items-center gap-1"><Phone className="w-4 h-4"/> {customer.phone}</span>
-            <span className="flex items-center gap-1"><MapPin className="w-4 h-4"/> {customer.address || 'Chưa cập nhật địa chỉ'}</span>
+      {customer.reactivation && customer.reactivation.level !== 'NONE' && (
+        <div className={`p-4 rounded-xl border flex items-start gap-3 shadow-sm ${
+          customer.reactivation.severity === 'critical' ? 'bg-rose-50 border-rose-200 text-rose-800' :
+          customer.reactivation.severity === 'danger' ? 'bg-orange-50 border-orange-200 text-orange-800' :
+          'bg-amber-50 border-amber-200 text-amber-800'
+        }`}>
+          <AlertTriangle className="w-5 h-5 mt-0.5 shrink-0" />
+          <div className="flex-1">
+            <h4 className="font-bold">{customer.reactivation.label}</h4>
+            <p className="text-sm mt-1">{customer.reactivation.reason}</p>
           </div>
         </div>
-        <div className="text-right">
-          <div className="text-xs text-slate-500">Sales phụ trách</div>
-          <div className="font-bold text-indigo-600">{customer.assignedSales?.name || 'Chưa có'}</div>
+      )}
+
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <div className="w-14 h-14 sm:w-16 sm:h-16 shrink-0 rounded-full bg-teal-100 flex items-center justify-center text-teal-600 text-xl sm:text-2xl font-bold">
+            {customer.name.charAt(0)}
+          </div>
+          <div className="flex-1 min-w-0 sm:hidden">
+            <h1 className="text-xl font-bold truncate">{customer.name}</h1>
+          </div>
+        </div>
+        <div className="flex-1 min-w-0 w-full">
+          <h1 className="text-2xl font-bold hidden sm:block truncate">{customer.name}</h1>
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 mt-2 text-sm text-slate-500">
+            <span className="flex items-center gap-2 min-w-0"><Phone className="w-4 h-4 shrink-0 text-slate-400"/> <span className="truncate">{customer.phone}</span></span>
+            <span className="flex items-start sm:items-center gap-2 min-w-0"><MapPin className="w-4 h-4 shrink-0 mt-0.5 sm:mt-0 text-slate-400"/> <span className="break-words min-w-0">{customer.address || 'Chưa cập nhật địa chỉ'}</span></span>
+          </div>
+        </div>
+        <div className="text-left sm:text-right w-full sm:w-auto mt-2 sm:mt-0 pt-3 sm:pt-0 border-t border-slate-100 dark:border-slate-800 sm:border-0">
+          <div className="text-xs text-slate-500 flex items-center sm:block gap-1">Sales phụ trách: <span className="font-bold text-indigo-600 sm:block">{customer.assignedSales?.name || 'Chưa có'}</span></div>
         </div>
       </div>
 
-      <div className="flex gap-2 border-b border-slate-200 dark:border-slate-800">
+      {/* Quick Actions */}
+      <div className="grid grid-cols-2 md:flex md:flex-wrap items-center gap-2">
+        <Link 
+          href={`/dashboard/quotes/new?customerId=${customer.id}`}
+          className="flex-1 md:flex-none flex justify-center items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold bg-blue-50 hover:bg-blue-100 text-blue-700 transition-colors"
+        >
+          <FileText className="h-4 w-4" /> Báo giá
+        </Link>
+        <Link 
+          href={`/dashboard/orders/new?customerId=${customer.id}`}
+          className="flex-1 md:flex-none flex justify-center items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-colors"
+        >
+          <Tag className="h-4 w-4" /> Đơn hàng
+        </Link>
+        <button 
+          onClick={() => setActiveTab('followups')}
+          className="flex-1 md:flex-none flex justify-center items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-700 transition-colors cursor-pointer"
+        >
+          <Calendar className="h-4 w-4" /> Lịch hẹn
+        </button>
+        <button 
+          onClick={() => setActiveTab('notes')}
+          className="flex-1 md:flex-none flex justify-center items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition-colors cursor-pointer"
+        >
+          <Edit className="h-4 w-4" /> Ghi chú
+        </button>
+      </div>
+
+      <div className="flex gap-2 border-b border-slate-200 dark:border-slate-800 overflow-x-auto whitespace-nowrap scrollbar-none">
         {TABS.map(t => (
           <button 
             key={t.id} 
             onClick={() => setActiveTab(t.id)}
-            className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors ${activeTab === t.id ? 'border-teal-500 text-teal-600' : 'border-transparent text-slate-500'}`}
+            className={`shrink-0 px-4 py-2 text-sm font-bold border-b-2 transition-colors ${activeTab === t.id ? 'border-teal-500 text-teal-600' : 'border-transparent text-slate-500'}`}
           >
             {t.label}
           </button>

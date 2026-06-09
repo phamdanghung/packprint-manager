@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { createPayment } from '@/lib/payment-actions';
 import { formatCurrencyVND, formatDate } from '@/lib/utils';
 import { Plus, CheckCircle, Clock } from 'lucide-react';
@@ -183,7 +184,7 @@ export default function PaymentSection({ order, payments, currentUserRole }: { o
                     <span>{formatDate(p.createdAt)}</span>
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="text-right flex flex-col items-end gap-1">
                   <div className={`text-xs font-bold px-2 py-1 rounded-full inline-block ${
                     p.paymentStatus === 'CONFIRMED' ? 'bg-emerald-100 text-emerald-700' :
                     p.paymentStatus === 'PENDING' ? 'bg-amber-100 text-amber-700' :
@@ -192,6 +193,9 @@ export default function PaymentSection({ order, payments, currentUserRole }: { o
                     {STATUS_LABELS[p.paymentStatus]}
                   </div>
                   <div className="text-[10px] text-slate-500 mt-1">{p.paymentCode}</div>
+                  <Link href={`/dashboard/print/payments/${p.id}`} className="text-[10px] font-bold text-blue-600 hover:text-blue-800 bg-blue-50 px-2 py-1 rounded mt-1">
+                    In Phiếu Thu
+                  </Link>
                 </div>
               </div>
             ))}

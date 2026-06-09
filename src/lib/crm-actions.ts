@@ -1,4 +1,4 @@
-'use server';
+﻿'use server';
 
 import { db } from './db';
 import { getCurrentUser } from './auth';
@@ -17,14 +17,14 @@ export async function checkCrmAccess(customerId: string) {
     select: { assignedSalesId: true, nextFollowUpAt: true, lastContactAt: true }
   });
 
-  if (!customer) throw new Error('Không tìm thấy khách hàng');
+  if (!customer) throw new Error('Kh├┤ng t├¼m thß║Ñy kh├ích h├áng');
 
   if (currentUser.role === 'SALES' && customer.assignedSalesId !== currentUser.id) {
-    throw new Error('Bạn không có quyền truy cập CRM của khách hàng này');
+    throw new Error('Bß║ín kh├┤ng c├│ quyß╗ün truy cß║¡p CRM cß╗ºa kh├ích h├áng n├áy');
   }
 
   if (currentUser.role === 'DESIGNER' || currentUser.role === 'PRODUCTION' || currentUser.role === 'DELIVERY') {
-    throw new Error('Vai trò của bạn không được cấp quyền truy cập CRM nâng cao');
+    throw new Error('Vai tr├▓ cß╗ºa bß║ín kh├┤ng ─æã░ß╗úc cß║Ñp quyß╗ün truy cß║¡p CRM n├óng cao');
   }
 
   return { currentUser, customer };
@@ -45,9 +45,9 @@ export async function getCustomerCrmData(customerId: string) {
     }
   });
 
-  if (!customer) throw new Error('Không tìm thấy khách hàng');
+  if (!customer) throw new Error('Kh├┤ng t├¼m thß║Ñy kh├ích h├áng');
 
-  // Thống kê cơ bản
+  // Thß╗æng k├¬ cãí bß║ún
   const quotes = await db.quote.count({ where: { customerId } });
   const orders = await db.order.findMany({ 
     where: { customerId }, 
@@ -77,19 +77,19 @@ export async function updateCustomerCrmProfile(customerId: string, input: {
 }) {
   const { currentUser, customer } = await checkCrmAccess(customerId);
 
-  // Chỉ Admin/Manager mới được đổi Sales
+  // Chß╗ë Admin/Manager mß╗øi ─æã░ß╗úc ─æß╗òi Sales
   if (input.assignedSalesId !== undefined && input.assignedSalesId !== customer.assignedSalesId) {
     if (currentUser.role !== 'ADMIN' && currentUser.role !== 'MANAGER') {
-      throw new Error('Chỉ Admin/Manager mới có quyền thay đổi người phụ trách');
+      throw new Error('Chß╗ë Admin/Manager mß╗øi c├│ quyß╗ün thay ─æß╗òi ngã░ß╗Øi phß╗Ñ tr├ích');
     }
   }
 
   // Validate tags limit
   if (input.tags && input.tags.length > 20) {
-    throw new Error('Tối đa 20 tags');
+    throw new Error('Tß╗æi ─æa 20 tags');
   }
   if (input.tags && input.tags.some(t => t.length > 30)) {
-    throw new Error('Mỗi tag tối đa 30 ký tự');
+    throw new Error('Mß╗ùi tag tß╗æi ─æa 30 k├¢ tß╗▒');
   }
 
   const dataToUpdate: any = { ...input };
@@ -100,7 +100,7 @@ export async function updateCustomerCrmProfile(customerId: string, input: {
     data: dataToUpdate
   });
 
-  // Audit log cho các thay đổi quan trọng
+  // Audit log cho c├íc thay ─æß╗òi quan trß╗ìng
   await createAuditLog({
     actorId: currentUser.id,
     actorName: currentUser.name,
@@ -108,7 +108,7 @@ export async function updateCustomerCrmProfile(customerId: string, input: {
     action: 'CUSTOMER_CRM_PROFILE_UPDATED',
     entityType: 'Customer',
     entityId: customerId,
-    description: `Cập nhật hồ sơ CRM khách hàng`,
+    description: `Cß║¡p nhß║¡t hß╗ô sãí CRM kh├ích h├áng`,
     beforeData: customer,
     afterData: updatedCustomer,
   });
@@ -149,7 +149,7 @@ export async function createCustomerNote(customerId: string, input: {
   const { currentUser } = await checkCrmAccess(customerId);
 
   if (currentUser.role === 'ACCOUNTANT' && input.type !== 'ACCOUNTING_NOTE') {
-    throw new Error('Kế toán chỉ được tạo ghi chú loại ACCOUNTING_NOTE');
+    throw new Error('Kß║┐ to├ín chß╗ë ─æã░ß╗úc tß║ío ghi ch├║ loß║íi ACCOUNTING_NOTE');
   }
 
   const note = await db.customerNote.create({
@@ -170,7 +170,7 @@ export async function createCustomerNote(customerId: string, input: {
     action: 'CUSTOMER_NOTE_CREATED',
     entityType: 'CustomerNote',
     entityId: note.id,
-    description: note.isPrivate ? 'Đã tạo ghi chú riêng tư cho khách hàng' : 'Đã tạo ghi chú khách hàng',
+    description: note.isPrivate ? '─É├ú tß║ío ghi ch├║ ri├¬ng tã░ cho kh├ích h├áng' : '─É├ú tß║ío ghi ch├║ kh├ích h├áng',
     afterData: note.isPrivate ? { id: note.id, type: note.type, content: '*** PRIVATE NOTE ***' } : note,
   });
 
@@ -179,12 +179,12 @@ export async function createCustomerNote(customerId: string, input: {
 
 export async function updateCustomerNote(noteId: string, input: { content: string, type: string, isPrivate: boolean, isPinned: boolean }) {
   const note = await db.customerNote.findUnique({ where: { id: noteId } });
-  if (!note) throw new Error('Ghi chú không tồn tại');
+  if (!note) throw new Error('Ghi ch├║ kh├┤ng tß╗ôn tß║íi');
 
   const { currentUser } = await checkCrmAccess(note.customerId);
 
   if (note.authorId !== currentUser.id && currentUser.role !== 'ADMIN' && currentUser.role !== 'MANAGER') {
-    throw new Error('Chỉ người tạo hoặc Quản lý mới được sửa ghi chú này');
+    throw new Error('Chß╗ë ngã░ß╗Øi tß║ío hoß║Àc Quß║ún l├¢ mß╗øi ─æã░ß╗úc sß╗¡a ghi ch├║ n├áy');
   }
 
   const updatedNote = await db.customerNote.update({
@@ -199,7 +199,7 @@ export async function updateCustomerNote(noteId: string, input: { content: strin
     action: 'CUSTOMER_NOTE_UPDATED',
     entityType: 'CustomerNote',
     entityId: note.id,
-    description: updatedNote.isPrivate ? 'Đã cập nhật ghi chú riêng tư' : 'Đã cập nhật ghi chú',
+    description: updatedNote.isPrivate ? '─É├ú cß║¡p nhß║¡t ghi ch├║ ri├¬ng tã░' : '─É├ú cß║¡p nhß║¡t ghi ch├║',
     beforeData: note.isPrivate ? { content: '*** PRIVATE NOTE ***' } : note,
     afterData: updatedNote.isPrivate ? { content: '*** PRIVATE NOTE ***' } : updatedNote,
   });
@@ -209,12 +209,12 @@ export async function updateCustomerNote(noteId: string, input: { content: strin
 
 export async function deleteCustomerNote(noteId: string) {
   const note = await db.customerNote.findUnique({ where: { id: noteId } });
-  if (!note) throw new Error('Ghi chú không tồn tại');
+  if (!note) throw new Error('Ghi ch├║ kh├┤ng tß╗ôn tß║íi');
 
   const { currentUser } = await checkCrmAccess(note.customerId);
 
   if (note.authorId !== currentUser.id && currentUser.role !== 'ADMIN' && currentUser.role !== 'MANAGER') {
-    throw new Error('Chỉ người tạo hoặc Quản lý mới được xóa ghi chú này');
+    throw new Error('Chß╗ë ngã░ß╗Øi tß║ío hoß║Àc Quß║ún l├¢ mß╗øi ─æã░ß╗úc x├│a ghi ch├║ n├áy');
   }
 
   await db.customerNote.update({
@@ -229,7 +229,7 @@ export async function deleteCustomerNote(noteId: string) {
     action: 'CUSTOMER_NOTE_DELETED',
     entityType: 'CustomerNote',
     entityId: note.id,
-    description: 'Xóa mềm ghi chú',
+    description: 'X├│a mß╗üm ghi ch├║',
   });
 
   return true;
@@ -237,7 +237,7 @@ export async function deleteCustomerNote(noteId: string) {
 
 export async function pinCustomerNote(noteId: string, isPinned: boolean) {
   const note = await db.customerNote.findUnique({ where: { id: noteId } });
-  if (!note) throw new Error('Ghi chú không tồn tại');
+  if (!note) throw new Error('Ghi ch├║ kh├┤ng tß╗ôn tß║íi');
 
   const { currentUser } = await checkCrmAccess(note.customerId);
 
@@ -253,7 +253,7 @@ export async function pinCustomerNote(noteId: string, isPinned: boolean) {
     action: 'CUSTOMER_NOTE_PINNED',
     entityType: 'CustomerNote',
     entityId: note.id,
-    description: isPinned ? 'Ghim ghi chú' : 'Bỏ ghim ghi chú',
+    description: isPinned ? 'Ghim ghi ch├║' : 'Bß╗Å ghim ghi ch├║',
   });
 
   return true;
@@ -306,7 +306,7 @@ export async function createCustomerInteraction(customerId: string, input: {
         customerId,
         assignedToId: currentUser.id,
         createdById: currentUser.id,
-        title: `Follow-up từ tương tác: ${input.title}`,
+        title: `Follow-up tß╗½ tã░ãíng t├íc: ${input.title}`,
         dueAt: input.followUpDueAt,
         status: 'OPEN',
         priority: 'NORMAL',
@@ -335,7 +335,7 @@ export async function createCustomerInteraction(customerId: string, input: {
     action: 'CUSTOMER_INTERACTION_CREATED',
     entityType: 'CustomerInteraction',
     entityId: interaction.id,
-    description: `Ghi nhận tương tác qua ${input.channel}`,
+    description: `Ghi nhß║¡n tã░ãíng t├íc qua ${input.channel}`,
     afterData: interaction,
   });
 
@@ -401,7 +401,7 @@ export async function createCustomerFollowUp(customerId: string, input: {
     action: 'CUSTOMER_FOLLOWUP_CREATED',
     entityType: 'CustomerFollowUp',
     entityId: followUp.id,
-    description: `Tạo lịch nhắc follow-up mới`,
+    description: `Tß║ío lß╗ïch nhß║»c follow-up mß╗øi`,
     afterData: followUp,
   });
 
@@ -410,7 +410,7 @@ export async function createCustomerFollowUp(customerId: string, input: {
 
 export async function updateCustomerFollowUpStatus(followUpId: string, status: string, resultNote?: string) {
   const followUp = await db.customerFollowUp.findUnique({ where: { id: followUpId } });
-  if (!followUp) throw new Error('Follow-up không tồn tại');
+  if (!followUp) throw new Error('Follow-up kh├┤ng tß╗ôn tß║íi');
 
   const { currentUser } = await checkCrmAccess(followUp.customerId);
 
@@ -435,7 +435,7 @@ export async function updateCustomerFollowUpStatus(followUpId: string, status: s
     action: status === 'DONE' ? 'CUSTOMER_FOLLOWUP_DONE' : status === 'CANCELLED' ? 'CUSTOMER_FOLLOWUP_CANCELLED' : 'CUSTOMER_FOLLOWUP_UPDATED',
     entityType: 'CustomerFollowUp',
     entityId: followUp.id,
-    description: `Cập nhật trạng thái follow-up thành ${status}`,
+    description: `Cß║¡p nhß║¡t trß║íng th├íi follow-up th├ánh ${status}`,
     beforeData: followUp,
     afterData: updated,
   });
@@ -483,10 +483,10 @@ export async function getCustomerTimeline(customerId: string) {
     timelineItems.push({ type: 'PAYMENT', date: p.createdAt, data: p });
   }
 
-  // Sắp xếp theo thời gian giảm dần
+  // Sß║»p xß║┐p theo thß╗Øi gian giß║úm dß║ºn
   timelineItems.sort((a, b) => b.date.getTime() - a.date.getTime());
 
-  // Giới hạn 50 mục gần nhất
+  // Giß╗øi hß║ín 50 mß╗Ñc gß║ºn nhß║Ñt
   return timelineItems.slice(0, 50);
 }
 
@@ -549,4 +549,107 @@ export async function getCustomersWithCrmFilters(filters: any) {
   });
 
   return customers;
+}
+import { getCustomerReactivationStatus } from './crm/crm-config';
+
+// 6. REACTIVATION
+export async function getReactivationCustomers(filters: any = {}) {
+  const currentUser = await getCurrentUser();
+  if (!currentUser) throw new Error('Unauthorized');
+
+  let where: any = {};
+  if (currentUser.role === 'SALES') {
+    where.assignedSalesId = currentUser.id;
+  }
+
+  try {
+    const customers = await db.customer.findMany({
+      where,
+      include: {
+        assignedSales: { select: { name: true } }
+      }
+    });
+
+    const reactivationList = customers.map(c => {
+      return { ...c, reactivation: getCustomerReactivationStatus(c as any) };
+    }).filter(c => c.reactivation.level !== 'NONE');
+
+    return { success: true, data: reactivationList };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+export async function dismissCustomerReactivation(customerId: string, reason: string) {
+  const currentUser = await getCurrentUser();
+  if (!currentUser) throw new Error('Unauthorized');
+
+  if (!reason.trim()) return { success: false, error: 'Phải nhập lý do' };
+
+  try {
+    await db.$transaction(async (tx) => {
+      const customer = await tx.customer.findUnique({ where: { id: customerId } });
+      if (!customer) throw new Error('Không tìm thấy khách hàng');
+
+      if (currentUser.role === 'SALES' && customer.assignedSalesId !== currentUser.id) {
+        throw new Error('Chỉ có thể dismiss cảnh báo khách của mình');
+      }
+
+      await tx.customer.update({
+        where: { id: customerId },
+        data: {
+          reactivationDismissedAt: new Date(),
+          reactivationDismissedById: currentUser.id,
+          reactivationDismissReason: reason
+        }
+      });
+
+      const activeTasks = await tx.taskItem.findMany({
+        where: { customerId, type: { startsWith: 'CUSTOMER_NO_ORDER_' }, status: { in: ['OPEN', 'IN_PROGRESS'] } }
+      });
+
+      for (const t of activeTasks) {
+        await tx.taskItem.update({
+          where: { id: t.id },
+          data: { status: 'RESOLVED', resolvedAt: new Date(), resolvedById: currentUser.id }
+        });
+      }
+    });
+
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+// 7. ORDER SYNC HELPER
+export async function syncCustomerAfterOrder(customerId: string, orderTotal: number) {
+  try {
+    await db.$transaction(async (tx) => {
+      const customer = await tx.customer.findUnique({ where: { id: customerId }});
+      if (!customer) return;
+
+      await tx.customer.update({
+        where: { id: customerId },
+        data: {
+          lastOrderAt: new Date(),
+          totalRevenue: { increment: orderTotal },
+          reactivationLevel: 'NONE'
+        }
+      });
+
+      const activeTasks = await tx.taskItem.findMany({
+        where: { customerId, type: { startsWith: 'CUSTOMER_NO_ORDER_' }, status: { in: ['OPEN', 'IN_PROGRESS'] } }
+      });
+
+      for (const t of activeTasks) {
+        await tx.taskItem.update({
+          where: { id: t.id },
+          data: { status: 'RESOLVED', resolvedAt: new Date() }
+        });
+      }
+    });
+  } catch (error) {
+    console.error('Error syncing customer after order:', error);
+  }
 }

@@ -4,9 +4,10 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { formatCurrencyVND } from '@/lib/utils';
 import { calculateQuotePreview, createQuote, updateQuote } from '@/lib/quote-actions';
-import { LucideAlertCircle, LucideSave, LucideCheck, LucideCalculator } from 'lucide-react';
+import { convertQuoteToOrder, createDirectOrderFromCrm } from '@/lib/order-actions';
+import { LucideAlertCircle, LucideSave, LucideCheck, LucideCalculator, LucideArrowRight, LucideLock } from 'lucide-react';
 
-export default function QuoteForm({ customers, materials, machines, laminations, initialData }: any) {
+export default function QuoteForm({ customers, materials, machines, laminations, initialData, userRole, isDirectOrder = false }: any) {
   const router = useRouter();
   
   // A. Khách hàng
@@ -126,7 +127,7 @@ export default function QuoteForm({ customers, materials, machines, laminations,
       warningNote: previewData.warnings.join(' | ')
     };
 
-    const quoteData = {
+    const quoteData: any = {
       customerId,
       status,
       subtotal: previewData.saleAmount,
@@ -140,17 +141,29 @@ export default function QuoteForm({ customers, materials, machines, laminations,
       items: [itemData]
     };
 
+    if (isDirectOrder) {
+      quoteData.internalNote = "CRM_DIRECT_ORDER: Tạo đơn trực tiếp từ CRM";
+    }
+
     let res;
-    if (initialData?.id) {
-      res = await updateQuote(initialData.id, quoteData);
+    if (isDirectOrder) {
+      res = await createDirectOrderFromCrm(quoteData);
     } else {
-      res = await createQuote(quoteData);
+      if (initialData?.id) {
+        res = await updateQuote(initialData.id, quoteData);
+      } else {
+        res = await createQuote(quoteData);
+      }
     }
 
     if (res.success) {
-      router.push('/dashboard/quotes');
+      if (isDirectOrder && res.data?.id) {
+        router.push(`/dashboard/orders/${res.data.id}`);
+      } else {
+        router.push('/dashboard/quotes');
+      }
     } else {
-      setErrorMsg(res.error || 'Lỗi khi lưu báo giá');
+      setErrorMsg(res.error || 'Lỗi khi lưu báo giá/đơn hàng');
       setIsSaving(false);
     }
   };
@@ -168,20 +181,47 @@ export default function QuoteForm({ customers, materials, machines, laminations,
 
         <div className="bg-white dark:bg-slate-800 rounded-xl shadow p-6 border border-slate-200 dark:border-slate-700">
           <h2 className="text-xl font-bold mb-4">A. Thông tin khách hàng</h2>
-          <select 
-            value={customerId} 
-            onChange={e => setCustomerId(e.target.value)}
-            className="w-full p-2 border rounded-lg dark:bg-slate-900 dark:border-slate-700 mb-2"
-          >
-            <option value="">-- Chọn khách hàng --</option>
-            {customers.map((c: any) => (
-              <option key={c.id} value={c.id}>{c.name} - {c.phone}</option>
-            ))}
-          </select>
-          {selectedCustomer && (
-            <p className="text-sm text-slate-500">
-              Mã: {selectedCustomer.customerCode} | Công nợ: <span className="font-semibold text-red-500">{formatCurrencyVND(selectedCustomer.debtBalance)}</span>
-            </p>
+          {!!initialData?.customerId && userRole === 'SALES' ? (
+            <div className="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-4 border border-slate-200 dark:border-slate-700 mb-2">
+              <div className="flex items-center gap-2 text-sm text-blue-600 mb-3 bg-blue-50 dark:bg-blue-900/30 p-2 rounded-md font-medium">
+                <LucideLock className="w-4 h-4" /> Khách hàng được khóa do tạo từ CRM.
+              </div>
+              {selectedCustomer ? (
+                <div className="space-y-1 text-sm">
+                  <p>Mã: <span className="font-semibold text-slate-700 dark:text-slate-300">{selectedCustomer.customerCode}</span></p>
+                  <p>Tên/Công ty: <span className="font-semibold text-slate-700 dark:text-slate-300">{selectedCustomer.name}</span></p>
+                  <p>SĐT: <span className="font-semibold text-slate-700 dark:text-slate-300">{selectedCustomer.phone || 'Chưa có'}</span></p>
+                  <p>Email: <span className="font-semibold text-slate-700 dark:text-slate-300">{selectedCustomer.email || 'Chưa có'}</span></p>
+                  <p>Địa chỉ: <span className="font-semibold text-slate-700 dark:text-slate-300">{selectedCustomer.address || 'Chưa có'}</span></p>
+                  <p>Công nợ: <span className="font-semibold text-red-500">{formatCurrencyVND(selectedCustomer.debtBalance)}</span></p>
+                </div>
+              ) : (
+                <p className="text-sm text-slate-500">Đang tải thông tin...</p>
+              )}
+            </div>
+          ) : (
+            <>
+              <select 
+                value={customerId} 
+                onChange={e => setCustomerId(e.target.value)}
+                className="w-full p-2 border rounded-lg dark:bg-slate-900 dark:border-slate-700 mb-2"
+              >
+                <option value="">-- Chọn khách hàng --</option>
+                {customers.map((c: any) => (
+                  <option key={c.id} value={c.id}>{c.name} - {c.phone}</option>
+                ))}
+              </select>
+              {selectedCustomer && (
+                <div className="text-sm text-slate-500 mt-2 space-y-1 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg">
+                  <p>Mã: <span className="font-semibold text-slate-700 dark:text-slate-300">{selectedCustomer.customerCode}</span></p>
+                  <p>Tên/Công ty: <span className="font-semibold text-slate-700 dark:text-slate-300">{selectedCustomer.name}</span></p>
+                  <p>SĐT: <span className="font-semibold text-slate-700 dark:text-slate-300">{selectedCustomer.phone || 'Chưa có'}</span></p>
+                  <p>Email: <span className="font-semibold text-slate-700 dark:text-slate-300">{selectedCustomer.email || 'Chưa có'}</span></p>
+                  <p>Địa chỉ: <span className="font-semibold text-slate-700 dark:text-slate-300">{selectedCustomer.address || 'Chưa có'}</span></p>
+                  <p>Công nợ: <span className="font-semibold text-red-500">{formatCurrencyVND(selectedCustomer.debtBalance)}</span></p>
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -361,20 +401,32 @@ export default function QuoteForm({ customers, materials, machines, laminations,
             )}
 
             <div className="mt-6 flex flex-col gap-2">
-              <button 
-                onClick={() => handleSave('DRAFT')}
-                disabled={isSaving}
-                className="w-full bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-white font-semibold py-2 rounded-lg flex items-center justify-center gap-2"
-              >
-                <LucideSave className="w-4 h-4" /> Lưu Nháp
-              </button>
-              <button 
-                onClick={() => handleSave('SENT')}
-                disabled={isSaving}
-                className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-lg flex items-center justify-center gap-2"
-              >
-                <LucideCheck className="w-4 h-4" /> Lưu & Gửi Khách
-              </button>
+              {isDirectOrder ? (
+                <button 
+                  onClick={() => handleSave('APPROVED')}
+                  disabled={isSaving}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg flex items-center justify-center gap-2"
+                >
+                  <LucideArrowRight className="w-4 h-4" /> {isSaving ? 'Đang tạo...' : 'Tạo Đơn Hàng'}
+                </button>
+              ) : (
+                <>
+                  <button 
+                    onClick={() => handleSave('DRAFT')}
+                    disabled={isSaving}
+                    className="w-full bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-white font-semibold py-2 rounded-lg flex items-center justify-center gap-2"
+                  >
+                    <LucideSave className="w-4 h-4" /> Lưu Nháp
+                  </button>
+                  <button 
+                    onClick={() => handleSave('SENT')}
+                    disabled={isSaving}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-lg flex items-center justify-center gap-2"
+                  >
+                    <LucideCheck className="w-4 h-4" /> Lưu & Gửi Khách
+                  </button>
+                </>
+              )}
             </div>
           </div>
         ) : (

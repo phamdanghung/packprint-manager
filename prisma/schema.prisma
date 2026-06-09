@@ -67,6 +67,12 @@ model User {
   assignedOperations    ProductionOperation[]    @relation("OperationAssignedUser")
   operationLogs         ProductionOperationLog[] @relation("OperationLogActor")
   qrScanLogs            ProductionQrScanLog[]    @relation("QrScanLogUser")
+  paymentRequests       PaymentRequest[]         @relation("PaymentRequestCreator")
+
+  createdConversions   InventoryConversion[] @relation("ConversionCreator")
+  confirmedConversions InventoryConversion[] @relation("ConversionConfirmer")
+  moldCheckouts        DieCutMoldUsage[]     @relation("MoldCheckedOutBy")
+  moldReturns          DieCutMoldUsage[]     @relation("MoldReturnedBy")
 }
 
 model Session {
@@ -83,41 +89,52 @@ model Session {
 }
 
 model Customer {
-  id                    String                 @id @default(uuid())
-  customerCode          String                 @unique
-  name                  String
-  phone                 String                 @unique
-  zalo                  String?
-  email                 String?
-  address               String?
-  customerType          String                 @default("RETAIL")
-  source                String                 @default("OTHER")
-  segment               String?
-  crmStatus             String                 @default("LEAD")
-  taxCode               String?
-  companyName           String?
-  note                  String?
-  tags                  String? // JSON stringified array
-  status                String                 @default("ACTIVE")
-  debtBalance           Float                  @default(0)
-  priority              String                 @default("NORMAL")
-  lastContactAt         DateTime?
-  nextFollowUpAt        DateTime?
-  createdById           String?
-  createdAt             DateTime               @default(now())
-  updatedAt             DateTime               @updatedAt
-  createdBy             User?                  @relation("CustomerCreator", fields: [createdById], references: [id])
-  assignedSalesId       String?
-  assignedSales         User?                  @relation("CustomerAssignedSales", fields: [assignedSalesId], references: [id])
-  orders                Order[]
-  payments              Payment[]
-  quotes                Quote[]
-  tasks                 TaskItem[]
-  notes                 CustomerNote[]
-  interactions          CustomerInteraction[]
-  followUps             CustomerFollowUp[]
-  inventoryTransactions InventoryTransaction[]
-  inventoryReservations InventoryReservation[]
+  id                        String                 @id @default(uuid())
+  customerCode              String                 @unique
+  name                      String
+  phone                     String                 @unique
+  zalo                      String?
+  email                     String?
+  address                   String?
+  customerType              String                 @default("RETAIL")
+  source                    String                 @default("OTHER")
+  segment                   String?
+  crmStatus                 String                 @default("LEAD")
+  taxCode                   String?
+  companyName               String?
+  note                      String?
+  tags                      String? // JSON stringified array
+  status                    String                 @default("ACTIVE")
+  debtBalance               Float                  @default(0)
+  priority                  String                 @default("NORMAL")
+  lastContactAt             DateTime?
+  nextFollowUpAt            DateTime?
+  lastOrderAt               DateTime?
+  lastQuoteAt               DateTime?
+  totalRevenue              Int                    @default(0)
+  totalPaid                 Int                    @default(0)
+  reactivationLevel         String?
+  reactivationNotifiedAt    DateTime?
+  reactivationDismissedAt   DateTime?
+  reactivationDismissedById String?
+  reactivationDismissReason String?
+  createdById               String?
+  createdAt                 DateTime               @default(now())
+  updatedAt                 DateTime               @updatedAt
+  createdBy                 User?                  @relation("CustomerCreator", fields: [createdById], references: [id])
+  assignedSalesId           String?
+  assignedSales             User?                  @relation("CustomerAssignedSales", fields: [assignedSalesId], references: [id])
+  orders                    Order[]
+  payments                  Payment[]
+  quotes                    Quote[]
+  tasks                     TaskItem[]
+  notes                     CustomerNote[]
+  interactions              CustomerInteraction[]
+  followUps                 CustomerFollowUp[]
+  inventoryTransactions     InventoryTransaction[]
+  inventoryReservations     InventoryReservation[]
+  paymentRequests           PaymentRequest[]
+  molds                     DieCutMold[]
 
   @@index([assignedSalesId])
   @@index([source])
@@ -202,29 +219,30 @@ model CustomerFollowUp {
 }
 
 model Quote {
-  id              String      @id @default(uuid())
-  quoteNumber     String      @unique
+  id              String           @id @default(uuid())
+  quoteNumber     String           @unique
   customerId      String
   status          String
-  subtotal        Float       @default(0)
-  vatRate         Float       @default(8)
-  vatAmount       Float       @default(0)
-  shippingFee     Float       @default(0)
-  totalAmount     Float       @default(0)
-  totalCost       Float       @default(0)
-  grossProfit     Float       @default(0)
-  grossProfitRate Float       @default(0)
+  subtotal        Float            @default(0)
+  vatRate         Float            @default(8)
+  vatAmount       Float            @default(0)
+  shippingFee     Float            @default(0)
+  totalAmount     Float            @default(0)
+  totalCost       Float            @default(0)
+  grossProfit     Float            @default(0)
+  grossProfitRate Float            @default(0)
   notes           String?
   internalNote    String?
   createdById     String
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
   orders          Order[]
-  createdBy       User        @relation(fields: [createdById], references: [id])
-  customer        Customer    @relation(fields: [customerId], references: [id])
+  createdBy       User             @relation(fields: [createdById], references: [id])
+  customer        Customer         @relation(fields: [customerId], references: [id])
   items           QuoteItem[]
+  paymentRequests PaymentRequest[]
   assignedSalesId String?
-  assignedSales   User?       @relation("QuoteAssignedSales", fields: [assignedSalesId], references: [id])
+  assignedSales   User?            @relation("QuoteAssignedSales", fields: [assignedSalesId], references: [id])
 
   @@index([assignedSalesId])
 }
@@ -271,7 +289,7 @@ model QuoteItem {
 model Order {
   id                    String                 @id @default(uuid())
   orderCode             String                 @unique
-  quoteId               String?
+  quoteId               String?                @unique
   customerId            String
   status                String
   paymentStatus         String                 @default("UNPAID")
@@ -311,7 +329,10 @@ model Order {
   tasks                 TaskItem[]
   inventoryTransactions InventoryTransaction[]
   inventoryReservations InventoryReservation[]
+  inventoryConversions  InventoryConversion[]
   printQueueItems       PrintQueueItem[]
+  paymentRequests       PaymentRequest[]
+  moldUsages            DieCutMoldUsage[]
 
   @@index([assignedSalesId])
 }
@@ -420,13 +441,15 @@ model ProductionJob {
   steps                 ProductionStep[]
   inventoryTransactions InventoryTransaction[]
   inventoryReservations InventoryReservation[]
+  inventoryConversions  InventoryConversion[]
   printQueueItems       PrintQueueItem[]
   operations            ProductionOperation[]
-  
-  qrToken               String?                @unique
-  qrIssuedAt            DateTime?
-  qrRevokedAt           DateTime?
-  qrScanLogs            ProductionQrScanLog[]
+  moldUsages            DieCutMoldUsage[]
+
+  qrToken     String?               @unique
+  qrIssuedAt  DateTime?
+  qrRevokedAt DateTime?
+  qrScanLogs  ProductionQrScanLog[]
 }
 
 model ProductionStep {
@@ -742,8 +765,21 @@ model InventoryItem {
   status           String   @default("ACTIVE")
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
-  createdById      String?
-  updatedById      String?
+
+  // Phase 22A Addendum Base Unit & Rolls
+  currentStockBase  Int     @default(0)
+  reservedStockBase Int     @default(0)
+  minStockBase      Int     @default(0)
+  stockBaseUnit     String  @default("SHEET")
+  displayUnit       String?
+  unitScale         Int     @default(1)
+  purchaseUnit      String?
+  conversionFactor  Float?
+  rollWidthCm       Float?
+  rollLengthM       Float?
+  defaultWasteRate  Float?
+  createdById       String?
+  updatedById       String?
 
   createdBy User? @relation("ItemCreatedBy", fields: [createdById], references: [id])
   updatedBy User? @relation("ItemUpdatedBy", fields: [updatedById], references: [id])
@@ -751,6 +787,11 @@ model InventoryItem {
   transactions    InventoryTransaction[]
   reservations    InventoryReservation[]
   printQueueItems PrintQueueItem[]
+
+  conversionsAsFrom InventoryConversion[]           @relation("ConversionFromMaterial")
+  conversionsAsTo   InventoryConversionOutputLine[] @relation("ConversionToMaterial")
+  recipesAsFrom     MaterialConversionRecipe[]      @relation("RecipeFromMaterial")
+  recipesAsTo       MaterialConversionRecipe[]      @relation("RecipeToMaterial")
 
   @@index([itemCode])
   @@index([category])
@@ -762,31 +803,35 @@ model InventoryItem {
 }
 
 model InventoryTransaction {
-  id              String   @id @default(cuid())
-  transactionCode String   @unique
-  itemId          String
-  type            String
-  quantity        Int
-  unitCost        Int?
-  totalCost       Int?
-  stockBefore     Int
-  stockAfter      Int
-  referenceType   String?
-  referenceId     String?
-  referenceCode   String?
-  productionJobId String?
-  orderId         String?
-  reason          String?
-  note            String?
-  createdById     String
-  createdAt       DateTime @default(now())
+  id               String   @id @default(cuid())
+  transactionCode  String   @unique
+  itemId           String
+  type             String
+  quantity         Int
+  purchaseQuantity Float?
+  purchaseUnit     String?
+  unitCost         Int?
+  totalCost        Int?
+  stockBefore      Int
+  stockAfter       Int
+  referenceType    String?
+  referenceId      String?
+  referenceCode    String?
+  productionJobId  String?
+  orderId          String?
+  reason           String?
+  note             String?
+  createdById      String
+  createdAt        DateTime @default(now())
 
-  item          InventoryItem  @relation(fields: [itemId], references: [id])
-  createdBy     User           @relation("InventoryTxCreatedBy", fields: [createdById], references: [id])
-  productionJob ProductionJob? @relation(fields: [productionJobId], references: [id])
-  order         Order?         @relation(fields: [orderId], references: [id])
-  customer      Customer?      @relation(fields: [customerId], references: [id])
+  item          InventoryItem        @relation(fields: [itemId], references: [id])
+  createdBy     User                 @relation("InventoryTxCreatedBy", fields: [createdById], references: [id])
+  productionJob ProductionJob?       @relation(fields: [productionJobId], references: [id])
+  order         Order?               @relation(fields: [orderId], references: [id])
+  customer      Customer?            @relation(fields: [customerId], references: [id])
   customerId    String?
+  conversionId  String?
+  conversion    InventoryConversion? @relation("ConversionTransactions", fields: [conversionId], references: [id])
 
   @@index([itemId])
   @@index([type])
@@ -1005,7 +1050,7 @@ model ProductionOperationLog {
 }
 
 model ProductionQrScanLog {
-  id              String         @id @default(uuid())
+  id              String   @id @default(uuid())
   token           String
   productionJobId String?
   userId          String?
@@ -1015,12 +1060,174 @@ model ProductionQrScanLog {
   reason          String?
   userAgent       String?
   ipAddress       String?
-  createdAt       DateTime       @default(now())
+  createdAt       DateTime @default(now())
 
-  productionJob   ProductionJob? @relation(fields: [productionJobId], references: [id], onDelete: SetNull)
-  user            User?          @relation("QrScanLogUser", fields: [userId], references: [id], onDelete: SetNull)
+  productionJob ProductionJob? @relation(fields: [productionJobId], references: [id], onDelete: SetNull)
+  user          User?          @relation("QrScanLogUser", fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([token])
   @@index([productionJobId])
   @@index([userId])
+}
+
+model CompanyProfile {
+  id             String   @id @default(uuid())
+  legalName      String
+  brandName      String
+  taxCode        String
+  companyAddress String
+  factoryAddress String
+  phone          String
+  hotline        String
+  email          String
+  website        String
+  slogan         String
+  logoUrl        String?
+  primaryColor   String?
+  secondaryColor String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model CompanyBankAccount {
+  id            String   @id @default(uuid())
+  bankName      String
+  vietQrBankId  String? // BIN/Bank Code for VietQR (e.g. "970416" for ACB)
+  accountNumber String
+  accountHolder String
+  branch        String?
+  isDefault     Boolean  @default(false)
+  isActive      Boolean  @default(true)
+  note          String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model PaymentRequest {
+  id                 String    @id @default(uuid())
+  quoteId            String?
+  orderId            String?
+  customerId         String
+  createdById        String
+  amount             Int
+  transferContent    String
+  qrUrl              String?
+  status             String    @default("PENDING") // PENDING, PAID_REPORTED, CONFIRMED, CANCELLED, EXPIRED
+  note               String?
+  reportedPaidAt     DateTime?
+  confirmedPaymentId String?
+  paymentMethod      String?
+  sourceType         String // QUOTE / ORDER / CUSTOM
+  createdFrom        String    @default("SALES_MOBILE") // SALES_MOBILE
+  cancelReason       String?
+  qrExpiresAt        DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  customer  Customer @relation(fields: [customerId], references: [id])
+  createdBy User     @relation("PaymentRequestCreator", fields: [createdById], references: [id])
+  quote     Quote?   @relation(fields: [quoteId], references: [id])
+  order     Order?   @relation(fields: [orderId], references: [id])
+  // We won't strictly relate confirmedPaymentId to Payment model here to avoid circular dep issues for now, or we can.
+
+  @@index([status])
+  @@index([customerId])
+  @@index([orderId])
+  @@index([quoteId])
+  @@index([createdById])
+}
+
+model InventoryConversion {
+  id                String    @id @default(uuid())
+  fromMaterialId    String
+  fromQuantityBase  Int
+  wasteQuantityBase Int       @default(0)
+  createdById       String
+  createdAt         DateTime  @default(now())
+  note              String?
+  orderId           String?
+  productionJobId   String?
+  status            String    @default("COMPLETED")
+  confirmedById     String?
+  confirmedAt       DateTime?
+
+  fromMaterial  InventoryItem                   @relation("ConversionFromMaterial", fields: [fromMaterialId], references: [id])
+  createdBy     User                            @relation("ConversionCreator", fields: [createdById], references: [id])
+  confirmedBy   User?                           @relation("ConversionConfirmer", fields: [confirmedById], references: [id])
+  order         Order?                          @relation(fields: [orderId], references: [id])
+  productionJob ProductionJob?                  @relation(fields: [productionJobId], references: [id])
+  outputLines   InventoryConversionOutputLine[]
+  transactions  InventoryTransaction[]          @relation("ConversionTransactions")
+}
+
+model InventoryConversionOutputLine {
+  id             String  @id @default(uuid())
+  conversionId   String
+  toMaterialId   String
+  toQuantityBase Int
+  note           String?
+
+  conversion InventoryConversion @relation(fields: [conversionId], references: [id], onDelete: Cascade)
+  toMaterial InventoryItem       @relation("ConversionToMaterial", fields: [toMaterialId], references: [id])
+}
+
+model MaterialConversionRecipe {
+  id                   String  @id @default(uuid())
+  fromMaterialId       String
+  toMaterialId         String
+  fromWidthCm          Float?
+  fromHeightCm         Float?
+  toWidthCm            Float?
+  toHeightCm           Float?
+  piecesPerParentSheet Int
+  defaultWasteRateBps  Int     @default(0)
+  note                 String?
+  isActive             Boolean @default(true)
+
+  fromMaterial InventoryItem @relation("RecipeFromMaterial", fields: [fromMaterialId], references: [id])
+  toMaterial   InventoryItem @relation("RecipeToMaterial", fields: [toMaterialId], references: [id])
+}
+
+model DieCutMold {
+  id              String   @id @default(uuid())
+  code            String   @unique
+  name            String
+  shape           String
+  widthCm         Float
+  heightCm        Float
+  diameterCm      Float?
+  cornerRadiusCm  Float?
+  customerId      String?
+  ownerType       String
+  storageLocation String?
+  status          String   @default("AVAILABLE")
+  usageCount      Int      @default(0)
+  maxUsageCount   Int?
+  createdCost     Int?
+  maintenanceCost Int?
+  note            String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  customer Customer?         @relation(fields: [customerId], references: [id])
+  usages   DieCutMoldUsage[]
+}
+
+model DieCutMoldUsage {
+  id              String    @id @default(uuid())
+  moldId          String
+  orderId         String?
+  productionJobId String?
+  status          String
+  checkedOutById  String?
+  checkedOutAt    DateTime?
+  returnedById    String?
+  returnedAt      DateTime?
+  note            String?
+
+  mold          DieCutMold     @relation(fields: [moldId], references: [id], onDelete: Cascade)
+  order         Order?         @relation(fields: [orderId], references: [id])
+  productionJob ProductionJob? @relation(fields: [productionJobId], references: [id])
+  checkedOutBy  User?          @relation("MoldCheckedOutBy", fields: [checkedOutById], references: [id])
+  returnedBy    User?          @relation("MoldReturnedBy", fields: [returnedById], references: [id])
 }

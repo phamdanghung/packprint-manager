@@ -361,3 +361,127 @@ export async function addProductionNote(jobId: string, note: string) {
     return { success: false, error: error.message };
   }
 }
+
+export async function sendOrderToProductionMobile(orderId: string) {
+  try {
+    const auth = await checkProductionAuth(['ADMIN', 'MANAGER', 'SALES']);
+    if (!auth.ok) return { success: false, error: auth.error };
+
+    const order = await db.order.findUnique({
+      where: { id: orderId },
+      include: { customer: true, items: true, productionJob: true }
+    });
+
+    if (!order) return { success: false, error: 'Không tìm thấy đơn hàng' };
+
+    // Checklist
+    let missingFields: string[] = [];
+    if (!order.customerId) missingFields.push('Khách hàng chưa được gán');
+    if (!order.items || order.items.length === 0) missingFields.push('Đơn hàng chưa có sản phẩm (Order Item)');
+    
+    // For MVP, we check if items have specs. At least one item should have dimensions.
+    const hasSpecs = order.items.some(item => item.widthCm > 0 && item.heightCm > 0);
+    if (!hasSpecs) missingFields.push('Sản phẩm chưa có quy cách kích thước (Width/Height)');
+    
+    if (!order.dueDate && !order.internalNote && !order.note) {
+      missingFields.push('Chưa có Ngày cần giao hoặc Ghi chú hẹn giao');
+    }
+
+    if (order.totalAmount > 0 && order.paidAmount === 0 && order.paymentStatus === 'UNPAID') {
+      missingFields.push('Đơn hàng chưa được thanh toán hoặc đặt cọc');
+    }
+
+    // Log if blocked
+    if (missingFields.length > 0) {
+      await db.systemAuditLog.create({
+        data: {
+          actorId: auth.user!.id,
+          actorName: auth.user!.name,
+          actorRole: auth.user!.role,
+          action: 'SALES_SENT_ORDER_TO_PRODUCTION',
+          entityType: 'ORDER',
+          entityId: orderId,
+          entityCode: order.orderCode,
+          description: 'Bị chặn gửi sản xuất do thiếu thông tin checklist',
+          afterJson: JSON.stringify({ checklistPassed: false, missingFields })
+        }
+      });
+      return { success: false, error: 'Chưa đủ điều kiện gửi sản xuất', missingFields };
+    }
+
+    // Passed checklist
+    let productionJobId = order.productionJob?.id;
+
+    if (!productionJobId) {
+      // Create Production Job
+      const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      const count = await db.productionJob.count({ where: { jobCode: { startsWith: `LSX-${dateStr}` } } });
+      const jobCode = `LSX-${dateStr}-${String(count + 1).padStart(3, '0')}`;
+
+      const crypto = require('crypto');
+      const randomToken = 'pjqr_' + crypto.randomBytes(16).toString('hex');
+
+      const job = await db.productionJob.create({
+        data: {
+          orderId,
+          jobCode,
+          status: 'PENDING',
+          qrToken: randomToken,
+          qrIssuedAt: new Date(),
+          steps: {
+            create: [
+              { stepCode: 'DESIGN_CHECK', stepName: 'Kiểm tra File / Thiết kế', status: 'PENDING' },
+              { stepCode: 'PRINTING', stepName: 'In ấn', status: 'PENDING' },
+              { stepCode: 'FINISHING', stepName: 'Gia công', status: 'PENDING' },
+              { stepCode: 'QC', stepName: 'Kiểm tra chất lượng', status: 'PENDING' },
+            ]
+          }
+        }
+      });
+      productionJobId = job.id;
+
+      // Create Task for Design
+      const taskCode = `TASK-DS-${Date.now()}`;
+      await db.taskItem.create({
+        data: {
+          taskCode,
+          title: `Kiểm tra File Thiết kế: Đơn ${order.orderCode}`,
+          description: `Sales ${auth.user!.name} vừa gửi đơn hàng xuống sản xuất. Vui lòng kiểm tra file.`,
+          type: 'DESIGN_APPROVAL',
+          priority: 'HIGH',
+          status: 'OPEN',
+          sourceType: 'PRODUCTION_JOB',
+          sourceId: productionJobId,
+          orderId: order.id,
+          customerId: order.customerId,
+          assignedRole: 'DESIGNER',
+          createdById: auth.user!.id,
+        }
+      });
+
+      await db.order.update({
+        where: { id: orderId },
+        data: { status: 'WAITING_DESIGN', productionStatus: 'PENDING' }
+      });
+    }
+
+    // Audit Log success
+    await db.systemAuditLog.create({
+      data: {
+        actorId: auth.user!.id,
+        actorName: auth.user!.name,
+        actorRole: auth.user!.role,
+        action: 'SALES_SENT_ORDER_TO_PRODUCTION',
+        entityType: 'ORDER',
+        entityId: orderId,
+        entityCode: order.orderCode,
+        description: 'Đã chuyển đơn hàng sang sản xuất thành công',
+        afterJson: JSON.stringify({ checklistPassed: true, productionJobId })
+      }
+    });
+
+    return { success: true, data: { productionJobId } };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}

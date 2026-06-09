@@ -1,6 +1,8 @@
 import React from 'react';
 import { getOrderById } from '@/lib/order-actions';
 import { formatCurrencyVND, formatDate } from '@/lib/utils';
+import { findParentMaterialFulfillment } from '@/lib/inventory-fulfillment';
+import ConversionSuggester from '@/components/inventory/conversion-suggester';
 import Link from 'next/link';
 import { getCurrentUser } from '@/lib/auth';
 import UpdateStatus from '@/components/orders/update-status';
@@ -36,7 +38,14 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           </p>
         </div>
         <div className="flex gap-2">
-          <button className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2 px-4 rounded-lg">In Lệnh Sản Xuất</button>
+          <Link href={`/dashboard/print/orders/${order.id}`} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">
+            In Đơn Hàng
+          </Link>
+          {order.productionJob && (
+            <Link href={`/dashboard/print/production-jobs/${order.productionJob.id}`} className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2 px-4 rounded-lg">
+              In Lệnh SX
+            </Link>
+          )}
         </div>
       </div>
 
@@ -58,9 +67,22 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             </div>
           </div>
 
-          {items.map((item: any, idx: number) => {
+          {await Promise.all(items.map(async (item: any, idx: number) => {
             const layoutDetails = item.layoutDetails ? JSON.parse(item.layoutDetails) : null;
+            let fulfillmentData = null;
+            if (['MANAGER', 'ADMIN'].includes(user.role)) {
+              try {
+                fulfillmentData = await findParentMaterialFulfillment({
+                  childMaterialId: item.materialId,
+                  requiredChildQtyBase: item.totalSheets,
+                  orderId: order.id
+                });
+              } catch (e) {
+                console.error(e);
+              }
+            }
             return (
+
               <div key={idx} className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
                 <h2 className="text-xl font-bold mb-4 border-b pb-2">Sản phẩm #{idx + 1}: {item.name}</h2>
                 <div className="grid grid-cols-2 gap-4 text-sm">
@@ -71,6 +93,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                     <hr className="my-2" />
                     <p><strong>Số con / tờ:</strong> {item.labelsPerSheet}</p>
                     <p><strong>Tổng tờ in (gồm bù hao):</strong> {item.totalSheets}</p>
+                    {fulfillmentData && <ConversionSuggester orderId={order.id} fulfillmentData={fulfillmentData} />}
                   </div>
                   {showFinancials && (
                     <div className="bg-slate-50 dark:bg-slate-900 p-3 rounded border">
@@ -91,7 +114,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                 )}
               </div>
             )
-          })}
+          }))}
           
           <DesignFilesSection orderId={order.id} currentUserRole={user.role} />
         </div>

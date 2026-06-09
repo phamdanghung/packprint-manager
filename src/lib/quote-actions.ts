@@ -16,13 +16,38 @@ export async function checkQuoteAuth(allowedRoles: string[]) {
   return { ok: true, user };
 }
 
+export async function getActiveMaterials() {
+  const auth = await checkQuoteAuth(['ADMIN', 'MANAGER', 'SALES']);
+  if (!auth.ok) return { success: false, error: auth.error };
+  const data = await db.material.findMany({ where: { status: 'ACTIVE' }, orderBy: { materialCode: 'asc' } });
+  return { success: true, data };
+}
+
+export async function getActiveLaminations() {
+  const auth = await checkQuoteAuth(['ADMIN', 'MANAGER', 'SALES']);
+  if (!auth.ok) return { success: false, error: auth.error };
+  const data = await db.laminationPrice.findMany({ where: { status: 'ACTIVE' }, orderBy: { name: 'asc' } });
+  return { success: true, data };
+}
+
+export async function getActiveMachines() {
+  const auth = await checkQuoteAuth(['ADMIN', 'MANAGER', 'SALES']);
+  if (!auth.ok) return { success: false, error: auth.error };
+  const data = await db.machineConfig.findMany({ where: { status: 'ACTIVE' } });
+  return { success: true, data };
+}
+
 // 1. Tính giá preview
 export async function calculateQuotePreview(input: DecalQuoteRequest): Promise<{ success: boolean; data?: CalculatorOutput; error?: string }> {
   try {
     const auth = await checkQuoteAuth(['ADMIN', 'MANAGER', 'SALES']);
     if (!auth.ok) return { success: false, error: auth.error };
 
-    const result = await calculateDecalQuoteFromDb(input);
+    let result = await calculateDecalQuoteFromDb(input);
+    if (auth.user!.role === 'SALES') {
+      result.costAmount = 0;
+      result.grossProfit = 0;
+    }
     return { success: true, data: result };
   } catch (error: any) {
     console.error('Lỗi tính giá preview:', error);
@@ -57,12 +82,22 @@ export async function createQuote(data: any) {
 
     const customer = await db.customer.findUnique({
       where: { id: data.customerId },
-      select: { assignedSalesId: true }
+      select: { id: true, assignedSalesId: true, customerCode: true }
     });
 
-    let assignedSalesId = customer?.assignedSalesId || null;
-    if (!assignedSalesId && auth.user!.role === 'SALES') {
-      assignedSalesId = auth.user!.id;
+    if (!customer) return { success: false, error: 'Khách hàng không tồn tại' };
+
+    let assignedSalesId = customer.assignedSalesId;
+    let isAutoAssigned = false;
+
+    if (auth.user!.role === 'SALES') {
+      if (assignedSalesId && assignedSalesId !== auth.user!.id) {
+        return { success: false, error: 'Bạn không thể tạo báo giá cho khách hàng do nhân viên Sales khác phụ trách.' };
+      }
+      if (!assignedSalesId) {
+        assignedSalesId = auth.user!.id;
+        isAutoAssigned = true;
+      }
     }
 
     const quote = await db.quote.create({
@@ -120,6 +155,27 @@ export async function createQuote(data: any) {
           }))
         }
       }
+    });
+
+    // Sync Customer
+    const customerUpdateData: any = { lastQuoteAt: new Date() };
+    if (isAutoAssigned) {
+      customerUpdateData.assignedSalesId = assignedSalesId;
+      await db.systemAuditLog.create({
+        data: {
+          actorId: auth.user!.id,
+          action: 'CUSTOMER_ASSIGNED_SALES_CHANGED',
+          entityType: 'CUSTOMER',
+          entityId: data.customerId,
+          entityCode: customer.customerCode,
+          description: `Tự động gán khách hàng khi tạo báo giá/đơn hàng.`,
+          afterJson: JSON.stringify({ assignedSalesId })
+        }
+      });
+    }
+    await db.customer.update({
+      where: { id: data.customerId },
+      data: customerUpdateData
     });
 
     return { success: true, data: quote };
@@ -238,6 +294,24 @@ export async function getQuotes(filters?: any) {
       },
       orderBy: { createdAt: 'desc' }
     });
+
+    if (auth.user!.role === 'SALES') {
+      quotes.forEach(quote => {
+        quote.totalCost = 0;
+        quote.grossProfit = 0;
+        quote.grossProfitRate = 0;
+        quote.items.forEach(item => {
+          item.materialCost = 0;
+          item.laminationCost = 0;
+          item.dieCutCost = 0;
+          item.printingCost = 0;
+          item.costAmount = 0;
+          item.profitRate = 0;
+          item.pricingDetails = null;
+        });
+      });
+    }
+
     return { success: true, data: quotes };
   } catch (error: any) {
     return { success: false, error: error.message || 'Lỗi lấy danh sách báo giá' };
@@ -258,6 +332,22 @@ export async function getQuoteById(id: string) {
       }
     });
     if (!quote) return { success: false, error: 'Không tìm thấy báo giá' };
+
+    if (auth.user!.role === 'SALES') {
+      quote.totalCost = 0;
+      quote.grossProfit = 0;
+      quote.grossProfitRate = 0;
+      quote.items.forEach(item => {
+        item.materialCost = 0;
+        item.laminationCost = 0;
+        item.dieCutCost = 0;
+        item.printingCost = 0;
+        item.costAmount = 0;
+        item.profitRate = 0;
+        item.pricingDetails = null;
+      });
+    }
+
     return { success: true, data: quote };
   } catch (error: any) {
     return { success: false, error: error.message || 'Lỗi lấy báo giá' };

@@ -323,7 +323,7 @@ export async function reserveMaterialForPrintJob(id: string) {
   // Gọi logic inventory
   await reserveInventory({
     itemId: item.materialId,
-    quantity: item.totalSheets,
+    quantityBase: item.totalSheets,
     productionJobId: item.productionJobId,
     note: `Giữ vật tư cho lệnh in (Queue ID: ${item.id})`
   });

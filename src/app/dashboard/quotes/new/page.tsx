@@ -4,9 +4,12 @@ import { db } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import Unauthorized from '@/components/unauthorized';
 
-export default async function NewQuotePage() {
+export default async function NewQuotePage({ searchParams }: { searchParams: Promise<{ customerId?: string }> }) {
+  const resolvedParams = await searchParams;
   const user = await getCurrentUser();
-  if (!user || user.role === 'ACCOUNTANT') return <Unauthorized />;
+  if (!user || user.role === 'ACCOUNTANT' || user.role === 'DESIGNER' || user.role === 'PRODUCTION' || user.role === 'DELIVERY') {
+    return <Unauthorized />;
+  }
 
   const [customers, materials, machines, laminations] = await Promise.all([
     db.customer.findMany({ where: { status: 'ACTIVE' } }),
@@ -14,6 +17,18 @@ export default async function NewQuotePage() {
     db.machineConfig.findMany({ where: { status: 'ACTIVE' } }),
     db.laminationPrice.findMany({ where: { status: 'ACTIVE' } })
   ]);
+
+  if (resolvedParams.customerId) {
+    const exists = customers.some(c => c.id === resolvedParams.customerId);
+    if (!exists) {
+      return (
+        <div className="p-6 max-w-lg mx-auto mt-10 bg-rose-50 text-rose-700 rounded-xl border border-rose-200 text-center">
+          <h2 className="text-xl font-bold mb-2">Không tìm thấy khách hàng</h2>
+          <p>Không tìm thấy khách hàng để tạo báo giá, hoặc khách hàng đã bị vô hiệu hóa.</p>
+        </div>
+      );
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -26,7 +41,9 @@ export default async function NewQuotePage() {
         customers={customers} 
         materials={materials} 
         machines={machines} 
-        laminations={laminations} 
+        laminations={laminations}
+        initialData={{ customerId: resolvedParams.customerId }}
+        userRole={user.role}
       />
     </div>
   );

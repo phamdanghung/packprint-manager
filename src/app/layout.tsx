@@ -17,6 +17,8 @@ export const metadata: Metadata = {
   description: "Phần mềm quản lý in ấn bao bì",
 };
 
+import { Toaster } from 'react-hot-toast';
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -27,7 +29,10 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col overflow-x-hidden max-w-full">
+        {children}
+        <Toaster position="bottom-center" />
+      </body>
     </html>
   );
 }

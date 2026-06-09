@@ -425,6 +425,31 @@ export async function syncSystemTasks(systemUserId: string = "SYSTEM") {
         assignedRole: "MANAGER",
         orderId: pq.orderId
       });
+      // Phase 22A.4 Integration
+      if (pq.materialId) {
+        candidates.push({
+          dedupeKey: `INVENTORY_CONVERSION_NEEDED:${pq.orderId}:${pq.materialId}`,
+          title: `Cần tạo phiếu cắt giấy cho ${pq.productionJob.jobCode}`,
+          description: "Thiếu vật tư nhỏ, nhưng có thể cắt từ vật tư lớn.",
+          type: "INVENTORY_CONVERSION_NEEDED",
+          priority: "HIGH",
+          sourceType: "PRINT_QUEUE",
+          sourceId: pq.id,
+          assignedRole: "MANAGER",
+          orderId: pq.orderId
+        });
+        candidates.push({
+          dedupeKey: `INVENTORY_MISSING_CONVERSION_RECIPE:${pq.materialId}`,
+          title: `Thiếu định mức cắt giấy cho vật tư`,
+          description: "Thiếu vật tư và không có định mức cắt.",
+          type: "INVENTORY_MISSING_CONVERSION_RECIPE",
+          priority: "NORMAL",
+          sourceType: "INVENTORY",
+          sourceId: pq.materialId,
+          assignedRole: "MANAGER",
+          orderId: pq.orderId
+        });
+      }
     } else if (pq.status === "PRINT_ERROR") {
       candidates.push({
         dedupeKey: `PRINT_JOB_ERROR:${pq.id}`,

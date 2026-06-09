@@ -8,6 +8,7 @@ export interface CustomerFilter {
   customerType?: string;
   source?: string;
   status?: string;
+  assignedSalesId?: string;
 }
 
 // Map phân quyền nhanh cho module khách hàng
@@ -39,6 +40,10 @@ export async function getCustomers(filters: CustomerFilter = {}) {
 
   if (status && status !== 'ALL') {
     where.status = status;
+  }
+
+  if (filters.assignedSalesId) {
+    where.assignedSalesId = filters.assignedSalesId;
   }
 
   if (search) {

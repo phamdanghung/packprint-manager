@@ -50,8 +50,9 @@ const PRIORITY_COLORS: Record<string, string> = {
 };
 
 import { QRCodeSVG } from 'qrcode.react';
+import ConversionSuggester from '@/components/inventory/conversion-suggester';
 
-export default function ProductionJobDetailClient({ job, userRole }: { job: any, userRole: string }) {
+export default function ProductionJobDetailClient({ job, userRole, fulfillmentDataMap = {} }: { job: any, userRole: string, fulfillmentDataMap?: Record<string, any> }) { {
   const canUpdate = ['ADMIN', 'MANAGER', 'PRODUCTION'].includes(userRole);
   const items = job.order?.items || [];
   
@@ -70,9 +71,14 @@ export default function ProductionJobDetailClient({ job, userRole }: { job: any,
           </Link>
           <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Chi tiết Lệnh SX: {job.jobCode}</h1>
         </div>
-        <Link href={`/dashboard/production/${job.id}/trace`} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-sm">
-          Xem Timeline Tổng (Trace)
-        </Link>
+        <div className="flex gap-2">
+          <Link href={`/dashboard/print/production-jobs/${job.id}`} className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-sm">
+            In Lệnh SX
+          </Link>
+          <Link href={`/dashboard/production/${job.id}/trace`} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-sm">
+            Xem Timeline Tổng (Trace)
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -151,6 +157,7 @@ export default function ProductionJobDetailClient({ job, userRole }: { job: any,
                   <div className="text-slate-500">Bình bài:</div>
                   <div className="font-medium text-right">{item.printSheets} + {item.wasteSheets} bù hao = {item.totalSheets} tờ</div>
                 </div>
+                {fulfillmentDataMap[item.id] && <ConversionSuggester productionJobId={job.id} fulfillmentData={fulfillmentDataMap[item.id]} />}
               </div>
             ))}
           </div>
@@ -187,4 +194,5 @@ export default function ProductionJobDetailClient({ job, userRole }: { job: any,
       </div>
     </div>
   );
+}
 }
