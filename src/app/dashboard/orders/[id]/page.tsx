@@ -93,7 +93,12 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                     <hr className="my-2" />
                     <p><strong>Số con / tờ:</strong> {item.labelsPerSheet}</p>
                     <p><strong>Tổng tờ in (gồm bù hao):</strong> {item.totalSheets}</p>
-                    {fulfillmentData && <ConversionSuggester orderId={order.id} fulfillmentData={fulfillmentData} />}
+                    {fulfillmentData && (
+                      <div className="mt-4 border-t pt-4">
+                        <h3 className="font-bold text-slate-800 mb-2">Vật tư & Gợi ý cắt giấy</h3>
+                        <ConversionSuggester orderId={order.id} fulfillmentData={fulfillmentData} />
+                      </div>
+                    )}
                   </div>
                   {showFinancials && (
                     <div className="bg-slate-50 dark:bg-slate-900 p-3 rounded border">

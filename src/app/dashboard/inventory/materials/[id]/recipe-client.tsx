@@ -10,6 +10,48 @@ export default function RecipeManagementClient({ material, allItems, userRole }:
   const [loading, setLoading] = useState(false);
   const canEdit = ['ADMIN', 'MANAGER'].includes(userRole);
 
+  // Hàm hỗ trợ lọc material
+  const isDecal = (name: string) => name.toLowerCase().includes('decal');
+  const getGsm = (name: string) => {
+    const match = name.match(/\d{3}/);
+    return match ? parseInt(match[0]) : null;
+  };
+  const getDims = (name: string) => {
+    const dimMatch = name.match(/(\d+(?:\.\d+)?)\s*[xX]\s*(\d+(?:\.\d+)?)/);
+    if (!dimMatch) return null;
+    const w = parseFloat(dimMatch[1]);
+    const h = parseFloat(dimMatch[2]);
+    return { w: Math.min(w, h), h: Math.max(w, h) };
+  };
+
+  const matIsDecal = isDecal(material.name);
+  const matGsm = getGsm(material.name);
+  const matDims = getDims(material.name);
+
+  const validItemsAsParent = allItems.filter((i: any) => {
+    if (i.id === material.id || i.stockBaseUnit !== 'SHEET' || i.category !== material.category || i.materialType !== material.materialType) return false;
+    if (isDecal(i.name) !== matIsDecal) return false;
+    if (getGsm(i.name) !== matGsm) return false;
+    const iDims = getDims(i.name);
+    // Parent (material) must be larger than Child (i)
+    if (matDims && iDims) {
+      if (matDims.w < iDims.w || matDims.h < iDims.h) return false;
+    }
+    return true;
+  });
+
+  const validItemsAsChild = allItems.filter((i: any) => {
+    if (i.id === material.id || i.stockBaseUnit !== 'SHEET' || i.category !== material.category || i.materialType !== material.materialType) return false;
+    if (isDecal(i.name) !== matIsDecal) return false;
+    if (getGsm(i.name) !== matGsm) return false;
+    const iDims = getDims(i.name);
+    // Parent (i) must be larger than Child (material)
+    if (matDims && iDims) {
+      if (iDims.w < matDims.w || iDims.h < matDims.h) return false;
+    }
+    return true;
+  });
+
   const handleCreateAsParent = async (e: any) => {
     e.preventDefault();
     if (!confirm('Tạo định mức mới?')) return;
@@ -69,12 +111,18 @@ export default function RecipeManagementClient({ material, allItems, userRole }:
         {canEdit && (
           <form onSubmit={handleCreateAsParent} className="mb-4 flex gap-2 items-center bg-indigo-50 p-3 rounded">
             <span className="text-sm font-medium">Cắt ra:</span>
-            <select name="toMaterialId" required className="flex-1 text-sm p-2 border rounded">
-              <option value="">- Chọn giấy con -</option>
-              {allItems.map((i: any) => <option key={i.id} value={i.id}>{i.name}</option>)}
-            </select>
-            <input name="pieces" type="number" min="1" required placeholder="Số tờ" className="w-20 text-sm p-2 border rounded" />
-            <button disabled={loading} className="p-2 bg-indigo-600 text-white rounded"><Plus className="w-4 h-4" /></button>
+            {validItemsAsParent.length > 0 ? (
+              <>
+                <select name="toMaterialId" required className="flex-1 text-sm p-2 border rounded">
+                  <option value="">- Chọn giấy con -</option>
+                  {validItemsAsParent.map((i: any) => <option key={i.id} value={i.id}>{i.name}</option>)}
+                </select>
+                <input name="pieces" type="number" min="1" required placeholder="Số tờ" className="w-20 text-sm p-2 border rounded" />
+                <button disabled={loading} className="p-2 bg-indigo-600 text-white rounded"><Plus className="w-4 h-4" /></button>
+              </>
+            ) : (
+              <span className="text-sm text-slate-500 italic flex-1">Chưa có vật tư cùng loại phù hợp để tạo định mức.</span>
+            )}
           </form>
         )}
 
@@ -109,13 +157,19 @@ export default function RecipeManagementClient({ material, allItems, userRole }:
         {canEdit && (
           <form onSubmit={handleCreateAsChild} className="mb-4 flex gap-2 items-center bg-emerald-50 p-3 rounded">
             <span className="text-sm font-medium">Cắt từ:</span>
-            <select name="fromMaterialId" required className="flex-1 text-sm p-2 border rounded">
-              <option value="">- Chọn giấy mẹ -</option>
-              {allItems.map((i: any) => <option key={i.id} value={i.id}>{i.name}</option>)}
-            </select>
-            <span className="text-sm font-medium">ra</span>
-            <input name="pieces" type="number" min="1" required placeholder="Số tờ" className="w-20 text-sm p-2 border rounded" />
-            <button disabled={loading} className="p-2 bg-emerald-600 text-white rounded"><Plus className="w-4 h-4" /></button>
+            {validItemsAsChild.length > 0 ? (
+              <>
+                <select name="fromMaterialId" required className="flex-1 text-sm p-2 border rounded">
+                  <option value="">- Chọn giấy mẹ -</option>
+                  {validItemsAsChild.map((i: any) => <option key={i.id} value={i.id}>{i.name}</option>)}
+                </select>
+                <span className="text-sm font-medium">ra</span>
+                <input name="pieces" type="number" min="1" required placeholder="Số tờ" className="w-20 text-sm p-2 border rounded" />
+                <button disabled={loading} className="p-2 bg-emerald-600 text-white rounded"><Plus className="w-4 h-4" /></button>
+              </>
+            ) : (
+              <span className="text-sm text-slate-500 italic flex-1">Chưa có vật tư cùng loại phù hợp để tạo định mức.</span>
+            )}
           </form>
         )}
 

@@ -5,6 +5,8 @@ import { getCurrentUser } from './auth';
 import { Prisma } from '@prisma/client';
 import { createAuditLog } from './audit-log';
 import { revalidatePath } from 'next/cache';
+import { deriveInventoryFieldsFromCodeOrInput, validateGeneratedCode } from './material-code-generator';
+import { safeRevalidatePath } from './safe-revalidate';
 
 /**
  * Access Check Helper
@@ -108,6 +110,7 @@ export async function getInventoryItems(filters: any = {}) {
   let items = await db.inventoryItem.findMany({
     where,
     orderBy,
+    include: { warehouseZone: true }
   });
 
   if (filters.alert === 'LOW_STOCK') {
@@ -138,20 +141,73 @@ export async function createInventoryItem(input: any) {
   const user = await checkInventoryAccess();
   if (user.role === 'PRODUCTION') throw new Error('Không có quyền tạo vật tư');
 
-  const { initialStockBase, ...data } = input;
+  const { initialStockBase, isManualOverride, overrideReason, codeGenInput, ...data } = input;
   
   if (data.standardCost && !canViewCost(user.role)) {
     delete data.standardCost;
     delete data.lastPurchaseCost;
   }
 
-  const existing = await db.inventoryItem.findUnique({ where: { itemCode: data.itemCode } });
-  if (existing) throw new Error('Mã vật tư đã tồn tại');
+  let finalItemCode = data.itemCode;
+  let finalData = { ...data };
+
+  if (isManualOverride) {
+    if (!['ADMIN', 'MANAGER'].includes(user.role)) {
+      throw new Error('Chỉ Admin/Manager mới được sửa mã thủ công');
+    }
+    if (!overrideReason) {
+      throw new Error('Bắt buộc nhập lý do sửa mã thủ công');
+    }
+    // Trust frontend code
+    finalItemCode = data.itemCode;
+  } else if (codeGenInput) {
+    // Generate code on server
+    const derived = deriveInventoryFieldsFromCodeOrInput(codeGenInput);
+    if (!validateGeneratedCode(derived.itemCode)) {
+      throw new Error('Mã vật tư sinh ra không hợp lệ');
+    }
+    finalItemCode = derived.itemCode;
+    finalData = { ...finalData, ...derived };
+  } else {
+    // Fallback if frontend didn't pass codeGenInput but didn't manual override (maybe legacy API call)
+    // We will just use data.itemCode but it's dangerous
+    if (!finalItemCode) throw new Error('Thiếu mã vật tư');
+  }
+
+  if (!finalData.warehouseZoneId) {
+    let typeCode = 'OTHER';
+    if (finalItemCode.startsWith('GIAY-')) typeCode = 'PAPER';
+    else if (finalItemCode.startsWith('DECAL-')) typeCode = 'DECAL';
+    else if (finalItemCode.startsWith('MANG-')) typeCode = 'LAMINATION';
+    else if (finalItemCode.startsWith('MUC-')) typeCode = 'INK';
+    else if (finalItemCode.startsWith('KEO-')) typeCode = 'SUPPLY';
+
+    const defaultZone = await db.warehouseZone.findFirst({
+      where: { type: typeCode, isActive: true },
+      orderBy: { sortOrder: 'asc' }
+    });
+    
+    if (defaultZone) {
+      finalData.warehouseZoneId = defaultZone.id;
+    } else {
+      const otherZone = await db.warehouseZone.findFirst({
+        where: { type: 'OTHER', isActive: true }
+      });
+      if (otherZone) finalData.warehouseZoneId = otherZone.id;
+    }
+  }
+
+  const existing = await db.inventoryItem.findUnique({ where: { itemCode: finalItemCode } });
+  if (existing) {
+    return { status: 'EXISTING_FOUND', id: existing.id, message: 'Vật tư đã tồn tại, hệ thống đã chọn mã có sẵn.' };
+  }
 
   const item = await db.$transaction(async (tx) => {
     const newItem = await tx.inventoryItem.create({
       data: {
-        ...data,
+        ...finalData,
+        itemCode: finalItemCode,
+        unit: finalData.unit || finalData.displayUnit || finalData.stockBaseUnit || 'N/A',
         supplierName: input.supplierName || null,
         currentStockBase: 0,
         reservedStockBase: 0,
@@ -188,15 +244,16 @@ export async function createInventoryItem(input: any) {
   });
 
   await createAuditLog({
-    action: 'INVENTORY_ITEM_CREATED',
+    action: isManualOverride ? 'INVENTORY_ITEM_MANUAL_CREATED' : 'INVENTORY_ITEM_CREATED',
     entityType: 'InventoryItem',
     entityId: item.id,
     actorId: user.id,
-    afterData: item
+    afterData: item,
+    description: isManualOverride ? `Manual Override Reason: ${overrideReason}` : undefined
   });
 
-  revalidatePath('/dashboard/inventory');
-  return { success: true, id: item.id };
+  safeRevalidatePath('/dashboard/inventory');
+  return { status: 'CREATED', id: item.id };
 }
 
 /**
@@ -233,7 +290,7 @@ export async function updateInventoryItem(id: string, input: any) {
     afterData: item
   });
 
-  revalidatePath('/dashboard/inventory');
+  safeRevalidatePath('/dashboard/inventory');
   return { success: true };
 }
 
@@ -315,7 +372,7 @@ export async function createInboundTransaction(input: {
     actorId: user.id,
   });
 
-  revalidatePath('/dashboard/inventory');
+  safeRevalidatePath('/dashboard/inventory');
   return { success: true };
 }
 
@@ -382,7 +439,7 @@ export async function createOutboundTransaction(input: {
     actorId: user.id,
   });
 
-  revalidatePath('/dashboard/inventory');
+  safeRevalidatePath('/dashboard/inventory');
   return { success: true };
 }
 
@@ -451,7 +508,7 @@ export async function createAdjustmentTransaction(input: {
     actorId: user.id,
   });
 
-  revalidatePath('/dashboard/inventory');
+  safeRevalidatePath('/dashboard/inventory');
   return { success: true };
 }
 
@@ -536,7 +593,7 @@ export async function reserveInventory(input: { itemId: string; quantityBase: nu
   });
 
   await createAuditLog({ action: 'INVENTORY_RESERVED', entityType: 'InventoryReservation', entityId: reservation.id, actorId: user.id });
-  revalidatePath('/dashboard/inventory');
+  safeRevalidatePath('/dashboard/inventory');
   return { success: true };
 }
 
@@ -578,7 +635,7 @@ export async function releaseReservation(reservationId: string) {
   });
 
   await createAuditLog({ action: 'INVENTORY_RESERVATION_RELEASED', entityType: 'InventoryReservation', entityId: res.id, actorId: user.id });
-  revalidatePath('/dashboard/inventory');
+  safeRevalidatePath('/dashboard/inventory');
   return { success: true };
 }
 
@@ -621,7 +678,7 @@ export async function consumeReservation(reservationId: string) {
   });
 
   await createAuditLog({ action: 'INVENTORY_RESERVATION_CONSUMED', entityType: 'InventoryReservation', entityId: res.id, actorId: user.id });
-  revalidatePath('/dashboard/inventory');
+  safeRevalidatePath('/dashboard/inventory');
   return { success: true };
 }
 
@@ -635,9 +692,24 @@ export async function convertMaterial(input: {
   toQuantityBase: number;
   wasteQuantityBase: number;
   note?: string;
+  isManualMode?: boolean;
+  recipeId?: string;
 }) {
   const user = await checkInventoryAccess();
   if (user.role === 'ACCOUNTANT') throw new Error('Kế toán không được thao tác kho');
+  
+  if (input.isManualMode) {
+    if (!['ADMIN', 'MANAGER'].includes(user.role)) {
+      throw new Error('Chỉ Quản lý hoặc Admin mới được phép chuyển đổi thủ công');
+    }
+    if (!input.note) {
+      throw new Error('Chuyển đổi thủ công bắt buộc phải nhập lý do (Ghi chú)');
+    }
+    input.note = `[MANUAL_CONVERSION] ${input.note}`;
+  } else {
+    // Mode Recipe
+    if (!input.recipeId) throw new Error('Chuyển đổi theo định mức phải có RecipeId');
+  }
 
   const { fromMaterialId, toMaterialId, fromQuantityBase, toQuantityBase, wasteQuantityBase } = input;
 
@@ -646,6 +718,12 @@ export async function convertMaterial(input: {
     if (!fromItem) throw new Error('Vật tư nguồn không tồn tại');
     const toItem = await tx.inventoryItem.findUnique({ where: { id: toMaterialId } });
     if (!toItem) throw new Error('Vật tư đích không tồn tại');
+
+    // Thêm check family cho cả 2 mode
+    const { isSameMaterialFamily } = require('./inventory-recipe-validation');
+    if (fromItem.category === 'PAPER' && toItem.category === 'PAPER' && !isSameMaterialFamily(fromItem, toItem)) {
+      throw new Error('Vật tư mẹ và con không cùng loại (Family/Grade). Không thể chuyển đổi.');
+    }
 
     const fromAvailable = fromItem.currentStockBase - fromItem.reservedStockBase;
     if (fromAvailable < fromQuantityBase) {
@@ -659,6 +737,8 @@ export async function convertMaterial(input: {
         wasteQuantityBase,
         note: input.note,
         createdById: user.id,
+        selectedRecipeId: input.recipeId || null,
+        selectedParentMaterialId: fromMaterialId,
       }
     });
 
@@ -738,7 +818,7 @@ export async function convertMaterial(input: {
     actorId: user.id,
   });
 
-  revalidatePath('/dashboard/inventory');
+  safeRevalidatePath('/dashboard/inventory');
   return { success: true };
 }
 
@@ -875,9 +955,108 @@ export async function createConversionForOrder(input: {
     actorId: user.id,
   });
 
-  revalidatePath('/dashboard/inventory');
+  safeRevalidatePath('/dashboard/inventory');
   revalidatePath('/dashboard/orders');
   revalidatePath('/dashboard/production');
   return { success: true, ...result };
 }
 
+/**
+ * Phase 22A.7: Safe Delete / Deactivate Inventory Item
+ */
+export async function deleteOrDeactivateInventoryItem(itemId: string) {
+  const user = await checkInventoryAccess();
+  if (!['ADMIN', 'MANAGER'].includes(user.role)) {
+    throw new Error('Chỉ Admin hoặc Manager mới có quyền xóa hoặc ngưng sử dụng vật tư');
+  }
+
+  const result = await db.$transaction(async (tx) => {
+    const item = await tx.inventoryItem.findUnique({
+      where: { id: itemId },
+      include: {
+        transactions: { take: 1 },
+        reservations: { take: 1 },
+        printQueueItems: { take: 1 }
+      }
+    });
+
+    if (!item) throw new Error('Vật tư không tồn tại');
+
+    if (item.currentStockBase > 0) {
+      throw new Error('Vật tư vẫn còn tồn kho. Vui lòng xuất/điều chỉnh về 0 trước khi ngưng sử dụng.');
+    }
+
+    const hasTransactions = item.transactions.length > 0;
+    const hasReservations = item.reservations.length > 0;
+    const hasPrintJobs = item.printQueueItems.length > 0;
+
+    const hasConversions = await tx.inventoryConversion.findFirst({
+      where: {
+        OR: [
+          { fromMaterialId: itemId },
+          { selectedParentMaterialId: itemId },
+          { outputLines: { some: { toMaterialId: itemId } } }
+        ]
+      }
+    });
+
+    const hasRecipes = await tx.materialConversionRecipe.findFirst({
+      where: {
+        OR: [
+          { fromMaterialId: itemId },
+          { toMaterialId: itemId }
+        ]
+      }
+    });
+
+    const canHardDelete = !hasTransactions && !hasReservations && !hasPrintJobs && !hasConversions && !hasRecipes && item.currentStockBase === 0 && item.currentStock === 0;
+
+    if (canHardDelete) {
+      await tx.inventoryItem.delete({ where: { id: itemId } });
+      return { status: 'DELETED', message: 'Đã xóa vật tư thành công khỏi hệ thống.' };
+    } else {
+      await tx.inventoryItem.update({
+        where: { id: itemId },
+        data: { status: 'INACTIVE', updatedById: user.id }
+      });
+      return { status: 'DEACTIVATED_INSTEAD', message: 'Vật tư đã có dữ liệu phát sinh, hệ thống đã ngưng sử dụng thay vì xóa để giữ lịch sử.' };
+    }
+  });
+
+  await createAuditLog({
+    action: result.status === 'DELETED' ? 'INVENTORY_ITEM_DELETED' : 'INVENTORY_ITEM_DEACTIVATED',
+    entityType: 'InventoryItem',
+    entityId: itemId,
+    actorId: user.id,
+    description: result.message
+  });
+
+  safeRevalidatePath('/dashboard/inventory');
+  return result;
+}
+
+export async function reactivateInventoryItem(itemId: string) {
+  const user = await checkInventoryAccess();
+  if (!['ADMIN', 'MANAGER'].includes(user.role)) {
+    throw new Error('Chỉ Admin hoặc Manager mới có quyền kích hoạt lại vật tư');
+  }
+
+  const item = await db.inventoryItem.findUnique({ where: { id: itemId } });
+  if (!item) throw new Error('Vật tư không tồn tại');
+  if (item.status === 'ACTIVE') throw new Error('Vật tư đang ở trạng thái kích hoạt sẵn');
+
+  await db.inventoryItem.update({
+    where: { id: itemId },
+    data: { status: 'ACTIVE', updatedById: user.id }
+  });
+
+  await createAuditLog({
+    action: 'INVENTORY_ITEM_REACTIVATED',
+    entityType: 'InventoryItem',
+    entityId: itemId,
+    actorId: user.id,
+  });
+
+  safeRevalidatePath('/dashboard/inventory');
+  return { success: true };
+}

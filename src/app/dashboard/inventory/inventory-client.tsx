@@ -3,16 +3,21 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Package, AlertTriangle, List, Clock, Plus, Search, Filter,
-  ArrowDownToLine, ArrowUpFromLine, RefreshCw, X
+  ArrowDownToLine, ArrowUpFromLine, RefreshCw, X, Settings, ChevronDown, Trash, Lock, Unlock
 } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { 
   createInventoryItem, createInboundTransaction, createOutboundTransaction,
-  createAdjustmentTransaction, getInventoryTransactions, getInventoryItems
+  createAdjustmentTransaction, getInventoryTransactions, getInventoryItems,
+  deleteOrDeactivateInventoryItem, reactivateInventoryItem
 } from '@/lib/inventory-actions';
 import { 
   INVENTORY_CATEGORIES, INVENTORY_MATERIAL_TYPES, INVENTORY_UNITS,
   INVENTORY_TRANSACTION_TYPES
 } from '@/lib/inventory-constants';
+import { ItemFormModal } from './item-form-modal';
+import { batchCreateStandardMaterials } from '@/lib/inventory-batch-actions';
 
 function formatIntegerBaseQuantity(num: number | string | undefined | null) {
   if (num === null || num === undefined) return '0';
@@ -21,11 +26,15 @@ function formatIntegerBaseQuantity(num: number | string | undefined | null) {
   return Math.round(val).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
 
-export default function InventoryClient({ initialData, initialItems, userRole }: any) {
-  const [activeTab, setActiveTab] = useState('inventory');
+export default function InventoryClient({ initialData, initialItems, userRole, activeZones = [] }: any) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'inventory');
+  const [statusFilter, setStatusFilter] = useState('ACTIVE');
   const [items, setItems] = useState(initialItems);
   const [kpis, setKpis] = useState(initialData.kpis);
   const [transactions, setTransactions] = useState<any[]>([]);
+  const [isZoneDropdownOpen, setIsZoneDropdownOpen] = useState(false);
   
   // Modals
   const [showItemModal, setShowItemModal] = useState(false);
@@ -41,6 +50,32 @@ export default function InventoryClient({ initialData, initialItems, userRole }:
     setItems(updated);
   };
 
+  const handleDeleteOrDeactivate = async (item: any) => {
+    if (item.currentStockBase > 0) {
+      alert('Vật tư vẫn còn tồn kho. Vui lòng xuất/điều chỉnh về 0 trước khi ngưng sử dụng.');
+      return;
+    }
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa/ngưng sử dụng vật tư ${item.itemCode}?`)) return;
+    
+    try {
+      const res = await deleteOrDeactivateInventoryItem(item.id);
+      alert(res.message);
+      refreshItems();
+    } catch (e: any) {
+      alert(e.message);
+    }
+  };
+
+  const handleReactivate = async (item: any) => {
+    if (!window.confirm(`Kích hoạt lại vật tư ${item.itemCode}?`)) return;
+    try {
+      await reactivateInventoryItem(item.id);
+      refreshItems();
+    } catch (e: any) {
+      alert(e.message);
+    }
+  };
+
   const loadTransactions = async () => {
     const txs = await getInventoryTransactions();
     setTransactions(txs);
@@ -52,6 +87,18 @@ export default function InventoryClient({ initialData, initialItems, userRole }:
     }
   }, [activeTab]);
 
+  const zonesToRender = activeZones?.length > 0 ? activeZones : [{ id: 'fallback-other', name: 'Khác' }];
+
+  let displayedItems = items;
+  if (activeTab.startsWith('zone-')) {
+    const zoneId = activeTab.replace('zone-', '');
+    displayedItems = displayedItems.filter((i: any) => i.warehouseZoneId === zoneId || (zoneId === 'fallback-other' && !i.warehouseZoneId));
+  }
+
+  if (statusFilter !== 'ALL') {
+    displayedItems = displayedItems.filter((i: any) => i.status === statusFilter);
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -60,13 +107,53 @@ export default function InventoryClient({ initialData, initialItems, userRole }:
           <p className="text-sm text-slate-500">Quản lý tồn kho, nhập xuất vật tư và cảnh báo thiếu hàng</p>
         </div>
         {canModifyItem && (
-          <button 
-            onClick={() => setShowItemModal(true)}
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Thêm vật tư</span>
-          </button>
+          <div className="flex gap-2">
+            <button 
+              onClick={() => {
+                // Batch create preset modal could go here, for now just a demo action
+                const preset = window.prompt("Nhập preset Batch Create (ví dụ: COUCHE_300, KRAFT_150, MANG_BONG_NHIET):", "COUCHE_300");
+                if (preset) {
+                  batchCreateStandardMaterials(preset).then(res => {
+                    alert('Batch Create hoàn tất:\n' + JSON.stringify(res, null, 2));
+                    refreshItems();
+                  });
+                }
+              }}
+              className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            >
+              <RefreshCw className="h-4 w-4" />
+              <span>Tạo Batch Bộ Mã Chuẩn</span>
+            </button>
+            <button 
+              onClick={() => router.push('/dashboard/inventory/warehouse-zones')}
+              className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            >
+              <Settings className="h-4 w-4" />
+              <span>Cấu hình Khu Kho</span>
+            </button>
+            <Link href="/dashboard/inventory/inbound" className="flex items-center gap-2 bg-indigo-50 text-indigo-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-100 transition-colors">
+              <ArrowDownToLine className="h-4 w-4" />
+              Phiếu Nhập Kho
+            </Link>
+            <Link href="/dashboard/inventory/outbound" className="flex items-center gap-2 bg-rose-50 text-rose-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-rose-100 transition-colors">
+              <ArrowUpFromLine className="h-4 w-4" />
+              Phiếu Xuất Kho
+            </Link>
+            <button 
+              onClick={() => setShowInboundModal(true)}
+              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            >
+              <ArrowDownToLine className="h-4 w-4" />
+              <span>Nhập Kho</span>
+            </button>
+            <button 
+              onClick={() => setShowItemModal(true)}
+              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Tạo Vật Tư Chuẩn</span>
+            </button>
+          </div>
         )}
       </div>
 
@@ -104,17 +191,54 @@ export default function InventoryClient({ initialData, initialItems, userRole }:
         )}
       </div>
 
-      {/* Tabs */}
-      <div className="flex border-b border-slate-200 overflow-x-auto">
-        <button
-          onClick={() => setActiveTab('inventory')}
+      {/* Tabs & Filters */}
+      <div className="flex flex-wrap items-center justify-between border-b border-slate-200">
+        <div className="flex flex-wrap">
+        <a
+          href="/dashboard/inventory"
           className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
             activeTab === 'inventory' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
           }`}
+          onClick={(e) => { e.preventDefault(); setActiveTab('inventory'); router.replace('/dashboard/inventory'); }}
         >
           <List className="h-4 w-4" />
-          Tồn kho (Vật tư)
-        </button>
+          Tất cả
+        </a>
+        <div className="relative">
+          <button
+            onClick={() => setIsZoneDropdownOpen(!isZoneDropdownOpen)}
+            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
+              activeTab.startsWith('zone-') ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+            }`}
+          >
+            <Package className="h-4 w-4" />
+            {activeTab.startsWith('zone-') ? (zonesToRender.find((z:any) => `zone-${z.id}` === activeTab)?.name || 'Khu kho') : 'Khu kho'}
+            <ChevronDown className={`h-4 w-4 transition-transform ${isZoneDropdownOpen ? 'rotate-180' : ''}`} />
+          </button>
+          
+          {isZoneDropdownOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setIsZoneDropdownOpen(false)}></div>
+              <div className="absolute left-0 top-full mt-1 w-48 bg-white border border-slate-200 shadow-lg rounded-lg z-50 py-1 overflow-hidden animate-in fade-in slide-in-from-top-2">
+                {zonesToRender.map((zone: any) => (
+                  <a
+                    key={zone.id}
+                    href={`/dashboard/inventory?tab=zone-${zone.id}`}
+                    className={`block px-4 py-2 text-sm hover:bg-slate-50 ${activeTab === `zone-${zone.id}` ? 'text-indigo-600 font-bold bg-indigo-50' : 'text-slate-700'}`}
+                    onClick={(e) => { 
+                      e.preventDefault(); 
+                      setActiveTab(`zone-${zone.id}`); 
+                      router.replace(`/dashboard/inventory?tab=zone-${zone.id}`);
+                      setIsZoneDropdownOpen(false);
+                    }}
+                  >
+                    {zone.name}
+                  </a>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
         <a
           href="/dashboard/inventory/conversions"
           className="flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 whitespace-nowrap transition-colors"
@@ -129,29 +253,45 @@ export default function InventoryClient({ initialData, initialItems, userRole }:
           <Package className="h-4 w-4" />
           Khuôn Bế (Tooling)
         </a>
-        <button
-          onClick={() => setActiveTab('alerts')}
+        <a
+          href="/dashboard/inventory?tab=alerts"
           className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
             activeTab === 'alerts' ? 'border-rose-600 text-rose-600' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
           }`}
+          onClick={(e) => { e.preventDefault(); setActiveTab('alerts'); router.replace('/dashboard/inventory?tab=alerts'); }}
         >
           <AlertTriangle className="h-4 w-4" />
           Cảnh báo tồn thấp {kpis.lowStockCount + kpis.outOfStockCount > 0 && `(${kpis.lowStockCount + kpis.outOfStockCount})`}
-        </button>
-        <button
-          onClick={() => setActiveTab('transactions')}
+        </a>
+        <a
+          href="/dashboard/inventory?tab=transactions"
           className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
             activeTab === 'transactions' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
           }`}
+          onClick={(e) => { e.preventDefault(); setActiveTab('transactions'); router.replace('/dashboard/inventory?tab=transactions'); }}
         >
           <Clock className="h-4 w-4" />
           Lịch sử giao dịch
-        </button>
+        </a>
+        </div>
+        
+        <div className="pr-4 py-2 flex items-center gap-2">
+          <span className="text-sm font-medium text-slate-500">Trạng thái:</span>
+          <select 
+            value={statusFilter} 
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-medium focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="ACTIVE">Đang dùng</option>
+            <option value="INACTIVE">Ngưng sử dụng</option>
+            <option value="ALL">Tất cả</option>
+          </select>
+        </div>
       </div>
 
       {/* Tab Content */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        {activeTab === 'inventory' && (
+        {(activeTab === 'inventory' || activeTab.startsWith('zone-')) && (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="bg-slate-50 border-b border-slate-200 text-slate-600">
@@ -168,11 +308,11 @@ export default function InventoryClient({ initialData, initialItems, userRole }:
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {items.length === 0 ? (
+                {displayedItems.length === 0 ? (
                   <tr>
                     <td colSpan={canViewCost ? 9 : 8} className="px-4 py-8 text-center text-slate-500">Không có dữ liệu</td>
                   </tr>
-                ) : items.map((item: any) => (
+                ) : displayedItems.map((item: any) => (
                   <tr key={item.id} className="hover:bg-slate-50">
                     <td className="px-4 py-3 font-medium text-slate-900">{item.itemCode}</td>
                     <td className="px-4 py-3">
@@ -217,6 +357,21 @@ export default function InventoryClient({ initialData, initialItems, userRole }:
                       {canModifyItem && (
                         <button onClick={() => setShowAdjModal(item)} className="p-1.5 text-amber-600 hover:bg-amber-50 rounded" title="Điều chỉnh">
                           <RefreshCw className="h-4 w-4" />
+                        </button>
+                      )}
+                      {canModifyItem && item.status === 'ACTIVE' && item.currentStockBase === 0 && (
+                        <button onClick={() => handleDeleteOrDeactivate(item)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded" title="Xóa (nếu chưa có GD)">
+                          <Trash className="h-4 w-4" />
+                        </button>
+                      )}
+                      {canModifyItem && item.status === 'ACTIVE' && item.currentStockBase > 0 && (
+                        <button onClick={() => handleDeleteOrDeactivate(item)} className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded" title="Ngưng sử dụng">
+                          <Lock className="h-4 w-4" />
+                        </button>
+                      )}
+                      {canModifyItem && item.status === 'INACTIVE' && (
+                        <button onClick={() => handleReactivate(item)} className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded" title="Kích hoạt lại">
+                          <Unlock className="h-4 w-4" />
                         </button>
                       )}
                     </td>
@@ -324,16 +479,21 @@ export default function InventoryClient({ initialData, initialItems, userRole }:
 
       {/* MODALS */}
       {showItemModal && (
-        <ItemModal 
+        <ItemFormModal 
           onClose={() => setShowItemModal(false)} 
           onSuccess={() => { setShowItemModal(false); refreshItems(); }} 
+          userRole={userRole}
+          activeZones={activeZones}
         />
       )}
       {showInboundModal && (
         <InboundModal 
-          item={showInboundModal} 
+          item={showInboundModal === true ? null : showInboundModal} 
+          items={items}
+          activeZones={activeZones}
           onClose={() => setShowInboundModal(null)} 
           onSuccess={() => { setShowInboundModal(null); refreshItems(); }} 
+          onQuickCreate={() => setShowItemModal(true)}
         />
       )}
       {showOutboundModal && (
@@ -354,158 +514,55 @@ export default function InventoryClient({ initialData, initialItems, userRole }:
   );
 }
 
-function ItemModal({ onClose, onSuccess }: any) {
+// The old ItemModal has been replaced by ItemFormModal
+
+function InboundModal({ item, items, activeZones, onClose, onSuccess, onQuickCreate }: any) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSubmit = async (e: any) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-    const formData = new FormData(e.target);
-    try {
-      await createInventoryItem({
-        itemCode: formData.get('itemCode'),
-        name: formData.get('name'),
-        category: formData.get('category'),
-        materialType: formData.get('materialType') || null,
-        unit: formData.get('unit'),
-        stockBaseUnit: formData.get('stockBaseUnit'),
-        displayUnit: formData.get('displayUnit'),
-        unitScale: Number(formData.get('unitScale')) || 1,
-        minStockBase: Number(formData.get('minStockBase')),
-        standardCost: Number(formData.get('standardCost')) || null,
-        initialStockBase: Number(formData.get('initialStockBase')) || 0,
-        location: formData.get('location') as string || null,
-        supplierName: formData.get('supplierName') as string || null,
-        status: 'ACTIVE'
-      });
-      onSuccess();
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [filterZoneId, setFilterZoneId] = useState('');
+  const filteredItems = filterZoneId ? items.filter((i: any) => i.warehouseZoneId === filterZoneId) : items;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden">
-        <div className="flex justify-between items-center p-4 border-b border-slate-100">
-          <h3 className="font-bold text-lg">Thêm vật tư mới</h3>
-          <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded text-slate-500"><X className="h-5 w-5" /></button>
-        </div>
-        <form onSubmit={handleSubmit} className="p-4 space-y-4">
-          {error && <div className="p-3 bg-rose-50 text-rose-600 text-sm rounded-lg">{error}</div>}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold mb-1 text-slate-700">Mã vật tư *</label>
-              <input name="itemCode" required className="w-full p-2 border rounded-lg text-sm" placeholder="VD: DC-001" />
-            </div>
-            <div>
-              <label className="block text-xs font-bold mb-1 text-slate-700">Tên vật tư *</label>
-              <input name="name" required className="w-full p-2 border rounded-lg text-sm" placeholder="VD: Decal giấy 32x35" />
-            </div>
-            <div>
-              <label className="block text-xs font-bold mb-1 text-slate-700">Nhóm *</label>
-              <select name="category" required className="w-full p-2 border rounded-lg text-sm">
-                {Object.entries(INVENTORY_CATEGORIES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-bold mb-1 text-slate-700">Loại vật liệu</label>
-              <select name="materialType" className="w-full p-2 border rounded-lg text-sm">
-                <option value="">- Chọn -</option>
-                {Object.entries(INVENTORY_MATERIAL_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-bold mb-1 text-slate-700">Đơn vị lưu trữ (Base) *</label>
-              <select name="stockBaseUnit" required className="w-full p-2 border rounded-lg text-sm">
-                <option value="SHEET">Tờ (Sheet)</option>
-                <option value="MILLIMETER">Milimét (mm)</option>
-                <option value="SQUARE_METER">Mét vuông (m²)</option>
-                <option value="GRAM">Gram (g)</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-bold mb-1 text-slate-700">Đơn vị hiển thị (Display)</label>
-              <select name="displayUnit" required className="w-full p-2 border rounded-lg text-sm">
-                <option value="SHEET">Tờ (Sheet)</option>
-                <option value="METER">Mét (m)</option>
-                <option value="KG">Kilogram (kg)</option>
-                <option value="ROLL">Cuộn (Roll)</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-bold mb-1 text-slate-700">Tỷ lệ quy đổi (Scale) *</label>
-              <input name="unitScale" type="number" defaultValue="1" min="1" required className="w-full p-2 border rounded-lg text-sm" placeholder="Ví dụ: 1000 nếu Base=mm, Display=m" />
-            </div>
-            <div>
-              <label className="block text-xs font-bold mb-1 text-slate-700">Tồn tối thiểu (Base Unit)</label>
-              <input name="minStockBase" type="number" defaultValue="0" min="0" required className="w-full p-2 border rounded-lg text-sm" />
-            </div>
-            <div>
-              <label className="block text-xs font-bold mb-1 text-slate-700">Tồn đầu kỳ (Base Unit)</label>
-              <input name="initialStockBase" type="number" defaultValue="0" min="0" className="w-full p-2 border rounded-lg text-sm" />
-            </div>
-            <div>
-              <label className="block text-xs font-bold mb-1 text-slate-700">Giá vốn chuẩn (VNĐ)</label>
-              <input name="standardCost" type="number" min="0" step="1" className="w-full p-2 border rounded-lg text-sm" />
-            </div>
-            <div>
-              <label className="block text-xs font-bold mb-1 text-slate-700">Vị trí lưu kho</label>
-              <input name="location" className="w-full p-2 border rounded-lg text-sm" placeholder="VD: Kệ A1, Tầng 2" />
-            </div>
-            <div>
-              <label className="block text-xs font-bold mb-1 text-slate-700">Tên Nhà cung cấp</label>
-              <input name="supplierName" className="w-full p-2 border rounded-lg text-sm" placeholder="VD: Công ty TNHH Bao Bì A" />
-            </div>
-          </div>
-          <div className="pt-4 flex justify-end gap-3">
-            <button type="button" onClick={onClose} className="px-4 py-2 border rounded-lg text-sm font-medium hover:bg-slate-50">Hủy</button>
-            <button type="submit" disabled={loading} className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50">
-              {loading ? 'Đang lưu...' : 'Lưu vật tư'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-function InboundModal({ item, onClose, onSuccess }: any) {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [selectedItemId, setSelectedItemId] = useState(item?.id || '');
+  const selectedItem = item || items.find((i: any) => i.id === selectedItemId);
 
   const [purchaseQuantity, setPurchaseQuantity] = useState<number | ''>('');
-  const [rollLengthM, setRollLengthM] = useState<number>(item.rollLengthM || 500);
+  const [rollLengthM, setRollLengthM] = useState<number>(selectedItem?.rollLengthM || 500);
 
-  const isRoll = item.purchaseUnit === 'ROLL' || item.displayUnit === 'ROLL' || item.stockBaseUnit === 'MILLIMETER';
-  const displayUnitName = item.purchaseUnit || item.displayUnit || item.unit;
+  // Update rollLengthM when selectedItem changes
+  useEffect(() => {
+    if (selectedItem?.rollLengthM) setRollLengthM(selectedItem.rollLengthM);
+  }, [selectedItem]);
+
+  const isRoll = selectedItem && (selectedItem.purchaseUnit === 'ROLL' || selectedItem.displayUnit === 'ROLL' || selectedItem.stockBaseUnit === 'MILLIMETER');
+  const displayUnitName = selectedItem ? (selectedItem.purchaseUnit || selectedItem.displayUnit || selectedItem.unit) : '';
   
   let calculatedBaseQty = 0;
   let previewText = '';
   
-  if (purchaseQuantity !== '') {
+  if (purchaseQuantity !== '' && selectedItem) {
     if (isRoll) {
       calculatedBaseQty = Math.round(Number(purchaseQuantity) * rollLengthM * 1000);
       previewText = `${purchaseQuantity} cuộn × ${formatIntegerBaseQuantity(rollLengthM)}m = ${formatIntegerBaseQuantity(Number(purchaseQuantity) * rollLengthM)}m = ${formatIntegerBaseQuantity(calculatedBaseQty)} MILLIMETER`;
     } else {
-      calculatedBaseQty = Math.round(Number(purchaseQuantity) * (item.unitScale || 1));
+      calculatedBaseQty = Math.round(Number(purchaseQuantity) * (selectedItem.unitScale || 1));
       const displayLabel = displayUnitName === 'SHEET' ? 'tờ' : displayUnitName;
-      previewText = `${purchaseQuantity} ${displayLabel} = ${formatIntegerBaseQuantity(calculatedBaseQty)} ${item.stockBaseUnit}`;
+      previewText = `${purchaseQuantity} ${displayLabel} = ${formatIntegerBaseQuantity(calculatedBaseQty)} ${selectedItem.stockBaseUnit}`;
     }
   }
 
   const handleSubmit = async (e: any) => {
     e.preventDefault();
+    if (!selectedItem) {
+      setError('Vui lòng chọn vật tư');
+      return;
+    }
     setLoading(true);
     setError('');
     const formData = new FormData(e.target);
     try {
       await createInboundTransaction({
-        itemId: item.id,
+        itemId: selectedItem.id,
         purchaseQuantity: Number(formData.get('purchaseQuantity')),
         rollLengthM: isRoll ? Number(formData.get('rollLengthM')) : undefined,
         unitCost: Number(formData.get('unitCost')) || undefined,
@@ -523,80 +580,134 @@ function InboundModal({ item, onClose, onSuccess }: any) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
-        <div className="flex justify-between items-center p-4 border-b border-slate-100 bg-indigo-50">
-          <h3 className="font-bold text-lg text-indigo-900">Nhập kho: {item.name}</h3>
+    <div className="fixed inset-0 z-[50] flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="flex justify-between items-center p-4 border-b border-slate-100 bg-indigo-50 flex-shrink-0">
+          <h3 className="font-bold text-lg text-indigo-900">Phiếu nhập kho</h3>
           <button onClick={onClose} className="p-1 hover:bg-indigo-100 rounded text-indigo-500"><X className="h-5 w-5" /></button>
         </div>
-        <form onSubmit={handleSubmit} className="p-4 space-y-4">
-          {error && <div className="p-3 bg-rose-50 text-rose-600 text-sm rounded-lg">{error}</div>}
-          <div className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold mb-1 text-slate-700">Số lượng nhập *</label>
-              <input 
-                name="purchaseQuantity" 
-                type="number" 
-                min="0.01" 
-                step="0.01" 
-                required 
-                value={purchaseQuantity}
-                onChange={(e) => setPurchaseQuantity(e.target.value === '' ? '' : Number(e.target.value))}
-                className="w-full p-2 border rounded-lg text-sm" 
-                placeholder="Ví dụ: 3"
-              />
-              <div className="text-xs text-slate-500 mt-1">Đơn vị nhập: {displayUnitName === 'ROLL' ? 'Cuộn' : displayUnitName}</div>
-            </div>
-
-            {isRoll && (
-              <div>
-                <label className="block text-xs font-bold mb-1 text-slate-700">Chiều dài mỗi cuộn (Mét) *</label>
-                <input 
-                  name="rollLengthM" 
-                  type="number" 
-                  min="1" 
-                  required 
-                  value={rollLengthM}
-                  onChange={(e) => setRollLengthM(Number(e.target.value))}
-                  className="w-full p-2 border rounded-lg text-sm" 
-                />
+        <div className="p-4 overflow-y-auto flex-1">
+          <form id="inboundForm" onSubmit={handleSubmit} className="space-y-4">
+            {error && <div className="p-3 bg-rose-50 text-rose-600 text-sm rounded-lg">{error}</div>}
+            
+            {!item && (
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-bold mb-1 text-slate-700">Lọc theo khu kho</label>
+                  <select
+                    value={filterZoneId}
+                    onChange={e => setFilterZoneId(e.target.value)}
+                    className="w-full p-2 border rounded-lg text-sm bg-slate-50"
+                  >
+                    <option value="">-- Tất cả khu kho --</option>
+                    {activeZones.map((z: any) => <option key={z.id} value={z.id}>{z.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold mb-1 text-slate-700">Chọn vật tư *</label>
+                  <div className="flex gap-2">
+                    <select 
+                      value={selectedItemId} 
+                      onChange={e => setSelectedItemId(e.target.value)} 
+                      className="flex-1 min-w-0 w-full p-2 border rounded-lg text-sm truncate"
+                      required
+                    >
+                      <option value="">-- Chọn vật tư --</option>
+                      {filteredItems.map((i: any) => <option key={i.id} value={i.id}>[{i.itemCode}] {i.name}</option>)}
+                    </select>
+                    <button type="button" onClick={onQuickCreate} className="px-3 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-sm font-medium whitespace-nowrap">
+                      + Tạo chuẩn
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
+            
+            {selectedItem && (
+              <div className="space-y-4">
+                {item && (
+                   <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-800">
+                     Vật tư: {selectedItem.name} ({selectedItem.itemCode})
+                   </div>
+                )}
+                
+                {selectedItem && !selectedItem.warehouseZoneId && (
+                  <div className="p-2 bg-amber-50 text-amber-700 text-sm rounded-lg flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4" /> Vật tư chưa được phân vào khu kho nào.
+                  </div>
+                )}
+                {selectedItem && selectedItem.warehouseZoneId && (
+                  <div className="text-xs font-medium text-slate-600 bg-slate-100 p-2 rounded flex items-center gap-2">
+                    <Package className="h-4 w-4" /> Khu kho: {activeZones.find((z:any) => z.id === selectedItem.warehouseZoneId)?.name || 'Không xác định'}
+                  </div>
+                )}
+                <div>
+                  <label className="block text-xs font-bold mb-1 text-slate-700">Số lượng nhập *</label>
+                  <input 
+                    name="purchaseQuantity" 
+                    type="number" 
+                    min="0.01" 
+                    step="0.01" 
+                    required 
+                    value={purchaseQuantity}
+                    onChange={(e) => setPurchaseQuantity(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="w-full p-2 border rounded-lg text-sm" 
+                    placeholder="Ví dụ: 3"
+                  />
+                  <div className="text-xs text-slate-500 mt-1">Đơn vị nhập: {displayUnitName === 'ROLL' ? 'Cuộn' : displayUnitName}</div>
+                </div>
 
-            {purchaseQuantity !== '' && (
-              <div className="p-2 bg-indigo-50 border border-indigo-100 text-indigo-700 text-sm rounded-lg">
-                <span className="font-semibold">Quy đổi tồn kho:</span> {previewText}
+                {isRoll && (
+                  <div>
+                    <label className="block text-xs font-bold mb-1 text-slate-700">Chiều dài mỗi cuộn (Mét) *</label>
+                    <input 
+                      name="rollLengthM" 
+                      type="number" 
+                      min="1" 
+                      required 
+                      value={rollLengthM}
+                      onChange={(e) => setRollLengthM(Number(e.target.value))}
+                      className="w-full p-2 border rounded-lg text-sm" 
+                    />
+                  </div>
+                )}
+
+                {purchaseQuantity !== '' && (
+                  <div className="p-2 bg-indigo-50 border border-indigo-100 text-indigo-700 text-sm rounded-lg">
+                    <span className="font-semibold">Quy đổi tồn kho:</span> {previewText}
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs font-bold mb-1 text-slate-700">Đơn giá nhập (VNĐ / {displayUnitName === 'ROLL' ? 'cuộn' : displayUnitName})</label>
+                  <input name="unitCost" type="number" min="0" step="1" className="w-full p-2 border rounded-lg text-sm" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold mb-1 text-slate-700">Ngày nhập</label>
+                  <input name="createdAt" type="datetime-local" className="w-full p-2 border rounded-lg text-sm" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold mb-1 text-slate-700">Nhà cung cấp</label>
+                  <input name="supplierName" defaultValue={selectedItem.supplierName || ''} className="w-full p-2 border rounded-lg text-sm" placeholder="Nhập tên nhà cung cấp" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold mb-1 text-slate-700">Mã chứng từ / Hóa đơn</label>
+                  <input name="referenceCode" className="w-full p-2 border rounded-lg text-sm" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold mb-1 text-slate-700">Ghi chú</label>
+                  <textarea name="note" className="w-full p-2 border rounded-lg text-sm" rows={2}></textarea>
+                </div>
               </div>
             )}
-
-            <div>
-              <label className="block text-xs font-bold mb-1 text-slate-700">Đơn giá nhập (VNĐ / {displayUnitName === 'ROLL' ? 'cuộn' : displayUnitName})</label>
-              <input name="unitCost" type="number" min="0" step="1" className="w-full p-2 border rounded-lg text-sm" />
-            </div>
-            <div>
-              <label className="block text-xs font-bold mb-1 text-slate-700">Ngày nhập</label>
-              <input name="createdAt" type="datetime-local" className="w-full p-2 border rounded-lg text-sm" />
-            </div>
-            <div>
-              <label className="block text-xs font-bold mb-1 text-slate-700">Nhà cung cấp</label>
-              <input name="supplierName" defaultValue={item.supplierName || ''} className="w-full p-2 border rounded-lg text-sm" placeholder="Nhập tên nhà cung cấp" />
-            </div>
-            <div>
-              <label className="block text-xs font-bold mb-1 text-slate-700">Mã chứng từ / Hóa đơn</label>
-              <input name="referenceCode" className="w-full p-2 border rounded-lg text-sm" />
-            </div>
-            <div>
-              <label className="block text-xs font-bold mb-1 text-slate-700">Ghi chú</label>
-              <textarea name="note" className="w-full p-2 border rounded-lg text-sm" rows={2}></textarea>
-            </div>
-          </div>
-          <div className="pt-4 flex justify-end gap-3">
-            <button type="button" onClick={onClose} className="px-4 py-2 border rounded-lg text-sm font-medium hover:bg-slate-50">Hủy</button>
-            <button type="submit" disabled={loading || purchaseQuantity === ''} className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50">
-              {loading ? 'Đang lưu...' : 'Xác nhận nhập'}
-            </button>
-          </div>
-        </form>
+          </form>
+        </div>
+        <div className="p-4 border-t border-slate-100 flex justify-end gap-3 bg-slate-50 flex-shrink-0">
+          <button type="button" onClick={onClose} className="px-4 py-2 border rounded-lg text-sm font-medium hover:bg-slate-50">Hủy</button>
+          <button form="inboundForm" type="submit" disabled={loading || purchaseQuantity === '' || !selectedItem} className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50">
+            {loading ? 'Đang lưu...' : 'Xác nhận nhập'}
+          </button>
+        </div>
       </div>
     </div>
   );

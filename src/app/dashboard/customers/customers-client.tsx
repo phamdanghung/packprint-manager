@@ -396,6 +396,58 @@ export default function CustomersClient({
                   <label className="text-xs font-bold text-slate-600 uppercase">Zalo</label>
                   <input value={zalo} onChange={e => setZalo(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 text-sm" placeholder="SĐT Zalo..." />
                 </div>
+                
+                {/* Bổ sung các trường */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-600 uppercase">Email</label>
+                  <input value={email} onChange={e => setEmail(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 text-sm" placeholder="email@example.com" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-600 uppercase">Loại Khách Hàng</label>
+                  <select value={customerType} onChange={e => setCustomerType(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 text-sm bg-white">
+                    {Object.entries(CUSTOMER_TYPES).map(([k,v]) => <option key={k} value={k}>{v}</option>)}
+                  </select>
+                </div>
+
+                <div className="col-span-2 space-y-1.5">
+                  <label className="text-xs font-bold text-slate-600 uppercase">Địa chỉ</label>
+                  <input value={address} onChange={e => setAddress(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 text-sm" placeholder="Địa chỉ giao hàng / hóa đơn..." />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-600 uppercase">Mã số thuế</label>
+                  <input value={taxCode} onChange={e => setTaxCode(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 text-sm" placeholder="Mã số thuế..." />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-600 uppercase">Tên Công Ty</label>
+                  <input value={companyName} onChange={e => setCompanyName(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 text-sm" placeholder="Tên doanh nghiệp..." />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-600 uppercase">Nguồn khách</label>
+                  <select value={source} onChange={e => setSource(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 text-sm bg-white">
+                    {Object.entries(CUSTOMER_SOURCES).map(([k,v]) => <option key={k} value={k}>{v}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-600 uppercase">Tags</label>
+                  <input value={tags} onChange={e => setTags(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 text-sm" placeholder="VIP, Ưu tiên... (cách bằng dấu phẩy)" />
+                </div>
+
+                {userRole !== 'SALES' && (
+                  <div className="col-span-2 space-y-1.5">
+                    <label className="text-xs font-bold text-slate-600 uppercase">Sales Phụ Trách</label>
+                    <select value={assignedSalesId} onChange={e => setAssignedSalesId(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 text-sm bg-white">
+                      <option value="">-- Chưa phân công --</option>
+                      {salesUsers.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                    </select>
+                  </div>
+                )}
+
+                <div className="col-span-2 space-y-1.5">
+                  <label className="text-xs font-bold text-slate-600 uppercase">Ghi chú</label>
+                  <textarea value={note} onChange={e => setNote(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 text-sm" rows={2} placeholder="Ghi chú thêm về khách hàng..."></textarea>
+                </div>
               </div>
               
               <div className="flex justify-end gap-3 pt-4 border-t">

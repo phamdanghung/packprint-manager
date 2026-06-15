@@ -751,6 +751,13 @@ model InventoryItem {
   name             String
   category         String
   materialType     String?
+  familyKey        String?
+  familyName       String?
+  gsm              Int?
+  thickness        Float?
+  sheetWidthCm     Float?
+  sheetHeightCm    Float?
+  sheetRole        String?
   unit             String
   currentStock     Int      @default(0)
   reservedStock    Int      @default(0)
@@ -759,6 +766,7 @@ model InventoryItem {
   reorderPoint     Int?
   standardCost     Int?
   lastPurchaseCost Int?
+  averageCost      Int?
   supplierName     String?
   location         String?
   note             String?
@@ -781,6 +789,9 @@ model InventoryItem {
   createdById       String?
   updatedById       String?
 
+  warehouseZoneId   String?
+  warehouseZone     WarehouseZone? @relation(fields: [warehouseZoneId], references: [id])
+
   createdBy User? @relation("ItemCreatedBy", fields: [createdById], references: [id])
   updatedBy User? @relation("ItemUpdatedBy", fields: [updatedById], references: [id])
 
@@ -792,6 +803,8 @@ model InventoryItem {
   conversionsAsTo   InventoryConversionOutputLine[] @relation("ConversionToMaterial")
   recipesAsFrom     MaterialConversionRecipe[]      @relation("RecipeFromMaterial")
   recipesAsTo       MaterialConversionRecipe[]      @relation("RecipeToMaterial")
+  inboundReceiptItems InventoryInboundReceiptItem[]
+  outboundReceiptItems InventoryOutboundReceiptItem[]
 
   @@index([itemCode])
   @@index([category])
@@ -800,6 +813,22 @@ model InventoryItem {
   @@index([currentStock])
   @@index([availableStock])
   @@index([minStock])
+  @@index([warehouseZoneId])
+}
+
+model WarehouseZone {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  type        String
+  description String?
+  isDefault   Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  inventoryItems InventoryItem[]
 }
 
 model InventoryTransaction {
@@ -1151,6 +1180,15 @@ model InventoryConversion {
   confirmedById     String?
   confirmedAt       DateTime?
 
+  selectedOptimizationMode String?
+  selectedRecipeId         String?
+  selectedParentMaterialId String?
+  estimatedParentCost      Int?
+  estimatedChildUnitCost   Int?
+  totalParentCost          Int?
+  optimizationNote         String?
+  surplusChildQtyBase      Int?
+
   fromMaterial  InventoryItem                   @relation("ConversionFromMaterial", fields: [fromMaterialId], references: [id])
   createdBy     User                            @relation("ConversionCreator", fields: [createdById], references: [id])
   confirmedBy   User?                           @relation("ConversionConfirmer", fields: [confirmedById], references: [id])
@@ -1181,8 +1219,13 @@ model MaterialConversionRecipe {
   toHeightCm           Float?
   piecesPerParentSheet Int
   defaultWasteRateBps  Int     @default(0)
+  priority             Int     @default(100)
+  isPreferred          Boolean @default(false)
+  cuttingLayoutNote    String?
   note                 String?
   isActive             Boolean @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt @default(now())
 
   fromMaterial InventoryItem @relation("RecipeFromMaterial", fields: [fromMaterialId], references: [id])
   toMaterial   InventoryItem @relation("RecipeToMaterial", fields: [toMaterialId], references: [id])
@@ -1231,3 +1274,114 @@ model DieCutMoldUsage {
   checkedOutBy  User?          @relation("MoldCheckedOutBy", fields: [checkedOutById], references: [id])
   returnedBy    User?          @relation("MoldReturnedBy", fields: [returnedById], references: [id])
 }
+
+// Phase 22A.8: Standardized Inbound Receipts
+model InventoryInboundReceipt {
+  id            String    @id @default(cuid())
+  receiptCode   String    @unique
+  supplierName  String?
+  supplierId    String?
+  documentNo    String?
+  receivedAt    DateTime  @default(now())
+  status        String    @default("COMPLETED")
+  note          String?
+  createdById   String?
+  cancelledById String?
+  cancelledAt   DateTime?
+  cancelReason  String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  items InventoryInboundReceiptItem[]
+}
+
+model InventoryInboundReceiptItem {
+  id                String    @id @default(cuid())
+  receiptId         String
+  receipt           InventoryInboundReceipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  
+  inventoryItemId   String
+  inventoryItem     InventoryItem @relation(fields: [inventoryItemId], references: [id])
+  
+  itemCode          String
+  itemName          String
+  
+  warehouseZoneId   String?
+  warehouseZoneName String?
+  
+  stockBaseUnit     String
+  
+  quantityBase      Int
+  unitCost          Int?
+  totalCost         Int?
+  
+  stockBeforeBase   Int
+  stockAfterBase    Int
+  
+  note              String?
+  
+  createdAt         DateTime  @default(now())
+}
+
+// Phase 22A.9: Standardized Outbound Receipts
+model InventoryOutboundReceipt {
+  id                 String    @id @default(cuid())
+
+  receiptCode        String    @unique
+  outboundType       String    @default("PRODUCTION_ISSUE")
+  // PRODUCTION_ISSUE, ADJUSTMENT, RETURN_SUPPLIER, DAMAGED, INTERNAL_USE, OTHER
+
+  status             String    @default("COMPLETED")
+  // COMPLETED, CANCELLED
+
+  issuedAt           DateTime  @default(now())
+
+  receiverName       String?
+  receiverDepartment String?
+
+  orderId            String?
+  productionJobId    String?
+
+  note               String?
+
+  createdById        String?
+  cancelledById      String?
+  cancelledAt        DateTime?
+  cancelReason       String?
+
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  items              InventoryOutboundReceiptItem[]
+}
+
+model InventoryOutboundReceiptItem {
+  id                 String    @id @default(cuid())
+
+  receiptId          String
+  receipt            InventoryOutboundReceipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+
+  inventoryItemId    String
+  inventoryItem      InventoryItem @relation(fields: [inventoryItemId], references: [id])
+
+  itemCode           String
+  itemName           String
+
+  warehouseZoneId    String?
+  warehouseZoneName  String?
+
+  stockBaseUnit      String
+
+  quantityBase       Int
+
+  unitCost           Int?
+  totalCost          Int?
+
+  stockBeforeBase    Int
+  stockAfterBase     Int
+
+  note               String?
+
+  createdAt          DateTime  @default(now())
+}
+

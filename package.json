@@ -6,7 +6,12 @@
     "dev": "next dev",
     "build": "prisma generate && next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:material": "tsx scripts/test-material-code-generator.ts",
+    "normalize:dry": "tsx scripts/normalize-inventory-codes.ts --dry-run",
+    "test:parent-child": "tsx scripts/test-inventory-parent-child.ts",
+    "test:core": "tsx scripts/test-inventory-core.ts",
+    "test:all": "npm run test:material && npm run normalize:dry && npm run test:parent-child && npm run test:core && npm run build"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",

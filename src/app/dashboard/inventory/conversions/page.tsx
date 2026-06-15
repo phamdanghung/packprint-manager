@@ -8,8 +8,20 @@ export default async function ConversionsPage() {
   if (!user) return <div>Không có quyền truy cập</div>;
 
   const items = await db.inventoryItem.findMany({
-    where: { category: 'PAPER' },
-    select: { id: true, name: true, itemCode: true, currentStockBase: true, stockBaseUnit: true }
+    where: { 
+      category: { in: ['PAPER', 'DECAL'] },
+      stockBaseUnit: 'SHEET'
+    },
+    select: { 
+      id: true, name: true, itemCode: true, currentStockBase: true, stockBaseUnit: true,
+      category: true, materialType: true, gsm: true, thickness: true, familyKey: true,
+      sheetWidthCm: true, sheetHeightCm: true, status: true
+    }
+  });
+
+  const recipes = await db.materialConversionRecipe.findMany({
+    where: { isActive: true },
+    select: { id: true, fromMaterialId: true, toMaterialId: true, piecesPerParentSheet: true }
   });
 
   const conversions = await db.inventoryConversion.findMany({
@@ -23,5 +35,5 @@ export default async function ConversionsPage() {
     }
   });
 
-  return <ConversionClient initialItems={items} initialConversions={conversions} userRole={user.role} />;
+  return <ConversionClient initialItems={items} initialConversions={conversions} userRole={user.role} recipes={recipes} />;
 }

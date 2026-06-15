@@ -4,6 +4,8 @@ import { headers } from 'next/headers';
 import { getCurrentUser } from '@/lib/auth';
 import LayoutWrapper from '@/components/layout-wrapper';
 
+export const dynamic = 'force-dynamic';
+
 interface DashboardLayoutProps {
   children: React.ReactNode;
 }

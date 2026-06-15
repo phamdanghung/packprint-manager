@@ -52,7 +52,7 @@ const PRIORITY_COLORS: Record<string, string> = {
 import { QRCodeSVG } from 'qrcode.react';
 import ConversionSuggester from '@/components/inventory/conversion-suggester';
 
-export default function ProductionJobDetailClient({ job, userRole, fulfillmentDataMap = {} }: { job: any, userRole: string, fulfillmentDataMap?: Record<string, any> }) { {
+export default function ProductionJobDetailClient({ job, userRole, fulfillmentDataMap = {} }: { job: any, userRole: string, fulfillmentDataMap?: Record<string, any> }) {
   const canUpdate = ['ADMIN', 'MANAGER', 'PRODUCTION'].includes(userRole);
   const items = job.order?.items || [];
   
@@ -157,7 +157,12 @@ export default function ProductionJobDetailClient({ job, userRole, fulfillmentDa
                   <div className="text-slate-500">Bình bài:</div>
                   <div className="font-medium text-right">{item.printSheets} + {item.wasteSheets} bù hao = {item.totalSheets} tờ</div>
                 </div>
-                {fulfillmentDataMap[item.id] && <ConversionSuggester productionJobId={job.id} fulfillmentData={fulfillmentDataMap[item.id]} />}
+                {fulfillmentDataMap[item.id] && (
+                  <div className="mt-4 border-t pt-4">
+                    <h3 className="font-bold text-slate-800 mb-2">Vật tư & Gợi ý cắt giấy</h3>
+                    <ConversionSuggester productionJobId={job.id} fulfillmentData={fulfillmentDataMap[item.id]} />
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -194,5 +199,4 @@ export default function ProductionJobDetailClient({ job, userRole, fulfillmentDa
       </div>
     </div>
   );
-}
 }

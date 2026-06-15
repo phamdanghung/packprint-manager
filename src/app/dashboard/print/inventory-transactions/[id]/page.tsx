@@ -136,7 +136,9 @@ export default async function PrintInventoryTransactionPage({ params }: { params
           </tbody>
         </table>
 
-        <div className="mb-8">
+        <div className="mb-8 border border-gray-400 p-3 bg-gray-50 text-sm">
+          <p className="mb-1"><strong>Dư sau cắt (Còn dùng được):</strong> {conversion.surplusChildQtyBase || 0} tờ con</p>
+          {(conversion.totalParentCost ?? 0) > 0 && <p className="mb-1"><strong>Tổng chi phí giấy mẹ:</strong> {(conversion.totalParentCost || 0).toLocaleString('vi-VN')} đ</p>}
           <p><strong>Ghi chú:</strong> {conversion.note || 'Không'}</p>
         </div>
 

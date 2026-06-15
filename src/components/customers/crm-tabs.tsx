@@ -13,6 +13,7 @@ import {
   createCustomerInteraction,
   createCustomerFollowUp, updateCustomerFollowUpStatus
 } from '@/lib/crm-actions';
+import { updateCustomer } from '@/lib/customer-actions';
 
 export default function CustomerCrmTabs({ 
   crmData, timeline, notes, interactions, followUps, quotes, orders, payments,
@@ -60,7 +61,7 @@ export default function CustomerCrmTabs({
         </div>
 
         <form action={async (formData) => {
-          const input = {
+          const inputCrm = {
             source: formData.get('source') as string,
             segment: formData.get('segment') as string,
             crmStatus: formData.get('crmStatus') as string,
@@ -68,17 +69,86 @@ export default function CustomerCrmTabs({
             tags: (formData.get('tags') as string).split(',').map(t => t.trim()).filter(Boolean),
             assignedSalesId: formData.get('assignedSalesId') as string
           };
+          const inputBasic = {
+            name: formData.get('name') as string,
+            phone: formData.get('phone') as string,
+            zalo: formData.get('zalo') as string,
+            email: formData.get('email') as string,
+            address: formData.get('address') as string,
+            customerType: formData.get('customerType') as string,
+            source: formData.get('source') as string,
+            taxCode: formData.get('taxCode') as string,
+            companyName: formData.get('companyName') as string,
+            note: formData.get('note') as string,
+            tags: (formData.get('tags') as string).split(',').map(t => t.trim()).filter(Boolean).join(','),
+            assignedSalesId: formData.get('assignedSalesId') as string
+          };
+
           startTransition(async () => {
             try {
-              await updateCustomerCrmProfile(customer.id, input);
-              alert('Cập nhật CRM profile thành công');
+              const resBasic = await updateCustomer(customer.id, inputBasic);
+              if (!resBasic.success) {
+                alert(resBasic.error);
+                return;
+              }
+              await updateCustomerCrmProfile(customer.id, inputCrm);
+              alert('Cập nhật thông tin thành công');
               router.refresh();
             } catch(e:any) {
               alert(e.message);
             }
           });
-        }} className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 space-y-4">
-          <h3 className="font-bold text-lg border-b pb-2">Thông tin CRM</h3>
+        }} className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 space-y-6">
+          
+          <div>
+            <h3 className="font-bold text-lg border-b pb-2 mb-4">Thông tin cơ bản</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="col-span-2">
+                <label className="block text-xs font-bold mb-1">Tên khách hàng *</label>
+                <input name="name" required defaultValue={customer.name} className="w-full p-2 border rounded" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold mb-1">Số điện thoại *</label>
+                <input name="phone" required defaultValue={customer.phone} className="w-full p-2 border rounded" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold mb-1">Zalo</label>
+                <input name="zalo" defaultValue={customer.zalo || ''} className="w-full p-2 border rounded" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold mb-1">Email</label>
+                <input name="email" defaultValue={customer.email || ''} className="w-full p-2 border rounded" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold mb-1">Loại khách hàng</label>
+                <select name="customerType" defaultValue={customer.customerType} className="w-full p-2 border rounded">
+                  <option value="RETAIL">Khách lẻ</option>
+                  <option value="WHOLESALE">Khách sỉ</option>
+                  <option value="AGENCY">Đại lý</option>
+                  <option value="CORPORATE">Doanh nghiệp</option>
+                </select>
+              </div>
+              <div className="col-span-2">
+                <label className="block text-xs font-bold mb-1">Địa chỉ</label>
+                <input name="address" defaultValue={customer.address || ''} className="w-full p-2 border rounded" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold mb-1">Mã số thuế</label>
+                <input name="taxCode" defaultValue={customer.taxCode || ''} className="w-full p-2 border rounded" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold mb-1">Tên Công Ty</label>
+                <input name="companyName" defaultValue={customer.companyName || ''} className="w-full p-2 border rounded" />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-xs font-bold mb-1">Ghi chú (Note chung)</label>
+                <textarea name="note" defaultValue={customer.note || ''} className="w-full p-2 border rounded" rows={2} />
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h3 className="font-bold text-lg border-b pb-2 mb-4">Thông tin CRM</h3>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold mb-1">Trạng thái CRM</label>
@@ -141,6 +211,7 @@ export default function CustomerCrmTabs({
                 </select>
               </div>
             )}
+          </div>
           </div>
           <button type="submit" disabled={isPending} className="bg-indigo-600 text-white px-4 py-2 rounded font-bold text-sm">Lưu cập nhật</button>
         </form>
