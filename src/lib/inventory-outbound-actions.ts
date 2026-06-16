@@ -39,22 +39,25 @@ export async function getOutboundReceipts(filters?: any) {
 
 export async function getOutboundReceiptDetail(id: string) {
   await checkInventoryAccess();
-  return db.inventoryOutboundReceipt.findUnique({
+  const receipt = await db.inventoryOutboundReceipt.findUnique({
     where: { id },
     include: {
       items: true,
     }
   });
+
+  if (receipt && receipt.productionJobId) {
+    const job = await db.productionJob.findUnique({ where: { id: receipt.productionJobId } });
+    if (job) {
+      (receipt as any).productionJob = job;
+    }
+  }
+
+  return receipt;
 }
 
-export async function createOutboundReceipt(input: CreateOutboundReceiptInput, bypassAuthRole?: string) {
-  let user: any;
-  if (bypassAuthRole) {
-    const realUser = await db.user.findFirst({ where: { role: bypassAuthRole } });
-    user = realUser || { id: 'test-admin', role: bypassAuthRole, name: 'Test User' };
-  } else {
-    user = await checkInventoryAccess();
-  }
+export async function createOutboundReceiptCore(input: CreateOutboundReceiptInput, user: any) {
+  
   
   if (['SALES', 'DESIGNER', 'DELIVERY', 'ACCOUNTANT'].includes(user.role)) {
     throw new Error('Bạn không có quyền tạo phiếu xuất kho');
@@ -206,14 +209,8 @@ export async function createOutboundReceipt(input: CreateOutboundReceiptInput, b
   return { success: true, data: result };
 }
 
-export async function cancelOutboundReceipt(receiptId: string, reason: string, bypassAuthRole?: string) {
-  let user: any;
-  if (bypassAuthRole) {
-    const realUser = await db.user.findFirst({ where: { role: bypassAuthRole } });
-    user = realUser || { id: 'test-admin', role: bypassAuthRole, name: 'Test User' };
-  } else {
-    user = await checkInventoryAccess();
-  }
+export async function cancelOutboundReceiptCore(receiptId: string, reason: string, user: any) {
+  
 
   if (user.role !== 'ADMIN' && user.role !== 'MANAGER') {
     throw new Error('Chỉ Quản trị viên hoặc Quản lý mới được hủy phiếu xuất');
@@ -307,4 +304,14 @@ export async function cancelOutboundReceipt(receiptId: string, reason: string, b
   safeRevalidatePath(`/dashboard/inventory/outbound/${receiptId}`);
   
   return { success: true, data: result };
+}
+
+export async function createOutboundReceipt(input: CreateOutboundReceiptInput) {
+  const user = await checkInventoryAccess();
+  return await createOutboundReceiptCore(input, user);
+}
+
+export async function cancelOutboundReceipt(receiptId: string, reason: string) {
+  const user = await checkInventoryAccess();
+  return await cancelOutboundReceiptCore(receiptId, reason, user);
 }

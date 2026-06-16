@@ -1,9 +1,9 @@
 'use server';
-
+import { safeRevalidatePath } from '@/lib/safe-revalidate';
 import { db } from './db';
 import { getCurrentUser } from './auth';
 import { createAuditLog } from './audit-log';
-import { revalidatePath } from 'next/cache';
+import {  } from "next/cache";
 import { checkInventoryAccess } from './inventory-actions';
 
 export const MOLD_SHAPES = ['ROUND', 'RECTANGLE', 'ROUNDED_RECTANGLE', 'OVAL', 'CUSTOM'];
@@ -47,7 +47,7 @@ export async function createMold(input: any) {
   });
 
   await createAuditLog({ action: 'MOLD_CREATED', entityType: 'DieCutMold', entityId: mold.id, actorId: user.id });
-  revalidatePath('/dashboard/inventory/molds');
+  safeRevalidatePath('/dashboard/inventory/molds');
   return { success: true, id: mold.id };
 }
 
@@ -137,7 +137,7 @@ export async function reserveMold(moldId: string, orderId?: string, productionJo
     return m;
   });
 
-  revalidatePath('/dashboard/inventory/molds');
+  safeRevalidatePath('/dashboard/inventory/molds');
   return { success: true };
 }
 
@@ -186,7 +186,7 @@ export async function checkoutMold(moldId: string, orderId?: string, productionJ
     return m;
   });
 
-  revalidatePath('/dashboard/inventory/molds');
+  safeRevalidatePath('/dashboard/inventory/molds');
   return { success: true };
 }
 
@@ -232,6 +232,6 @@ export async function returnMold(moldId: string, statusAfterReturn: string = 'AV
     return m;
   });
 
-  revalidatePath('/dashboard/inventory/molds');
+  safeRevalidatePath('/dashboard/inventory/molds');
   return { success: true };
 }

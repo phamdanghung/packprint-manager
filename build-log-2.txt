@@ -1,0 +1,44 @@
+
+> packaging-printing-management@0.1.0 build
+> prisma generate && next build
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma\schema.prisma
+┌─────────────────────────────────────────────────────────┐
+│  Update available 6.19.3 -> 7.8.0                       │
+│                                                         │
+│  This is a major update - please follow the guide at    │
+│  https://pris.ly/d/major-version-upgrade                │
+│                                                         │
+│  Run the following to update                            │
+│    npm i --save-dev prisma@latest                       │
+│    npm i @prisma/client@latest                          │
+└─────────────────────────────────────────────────────────┘
+
+✔ Generated Prisma Client (v6.19.3) to .\node_modules\@prisma\client in 656ms
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+Tip: Interested in query caching in just a few lines of code? Try Accelerate today! https://pris.ly/tip-3-accelerate
+
+▲ Next.js 16.2.6 (Turbopack)
+- Environments: .env
+
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+  Creating an optimized production build ...
+✓ Compiled successfully in 14.6s
+  Running TypeScript ...
+Failed to type check.
+
+./src/app/dashboard/production/[id]/issue-materials/issue-materials-client.tsx:74:32
+Type error: Property 'data' does not exist on type '{ success: boolean; data: { id: string; note: string | null; status: string; createdAt: Date; updatedAt: Date; createdById: string | null; orderId: string | null; productionJobId: string | null; ... 7 more ...; receiverDepartment: string | null; }; } | { ...; }'.
+  Property 'data' does not exist on type '{ success: boolean; error: string; }'.
+
+  [90m72 |[0m       });
+  [90m73 |[0m
+[31m[1m>[0m [90m74 |[0m       [36mif[0m (!res.success || !res.data) {
+  [90m   |[0m                                [31m[1m^[0m
+  [90m75 |[0m         toast.error((res [36mas[0m any).error || [32m'Lỗi khi tạo phiếu xuất'[0m);
+  [90m76 |[0m         setIsSubmitting([36mfalse[0m);
+  [90m77 |[0m         [36mreturn[0m;
+Next.js build worker exited with code: 1 and signal: null

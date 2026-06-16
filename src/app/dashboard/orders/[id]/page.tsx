@@ -11,6 +11,7 @@ import Unauthorized from '@/components/unauthorized';
 import DesignFilesSection from '@/components/design-files/design-files-section';
 import ProductionProgressSection from '@/components/orders/production-progress-section';
 import DeliveryProgressSection from '@/components/orders/delivery-progress-section';
+import { getOrderProfitability } from '@/lib/production-costing-actions';
 
 export default async function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
@@ -26,6 +27,9 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const payments = order.payments || [];
 
   const showFinancials = !['DESIGNER', 'PRODUCTION', 'DELIVERY'].includes(user.role);
+  
+  const profitRes = await getOrderProfitability(order.id);
+  const profitData = profitRes.success ? profitRes.data : null;
 
   return (
     <div className="space-y-6">
@@ -136,19 +140,45 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
 
           <PaymentSection order={order} payments={payments} currentUserRole={user.role} />
 
-          {showFinancials && (
+          {profitData && profitData.canViewCost && (
             <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
-              <h2 className="text-xl font-bold mb-4">Lợi nhuận Đơn hàng</h2>
+              <h2 className="text-xl font-bold mb-4">Lãi/lỗ tạm tính</h2>
               <div className="space-y-2 text-sm">
-                <div className="flex justify-between"><span>Tổng doanh thu (chưa VAT):</span> <span>{formatCurrencyVND(order.subtotal)}</span></div>
-                <div className="flex justify-between"><span>Tổng chi phí vốn:</span> <span>{formatCurrencyVND(order.totalCost)}</span></div>
-                <hr className="my-2" />
-                <div className="flex justify-between font-bold text-green-600">
-                  <span>Lợi nhuận Gộp:</span> <span>{formatCurrencyVND(order.grossProfit)}</span>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Doanh thu đơn hàng:</span> 
+                  <span className="font-bold">{formatCurrencyVND(profitData.order?.revenue || 0)}</span>
                 </div>
-                <div className="flex justify-between text-slate-500">
-                  <span>Tỷ suất Lợi nhuận:</span> <span>{order.grossProfitRate.toFixed(2)}%</span>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Chi phí vật tư thực tế:</span> 
+                  <span className="font-bold text-rose-600">{formatCurrencyVND(profitData.costs?.actualMaterialCost || 0)}</span>
                 </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Chi phí sản xuất khác (Nhân công, gia công,...):</span> 
+                  <span className="font-bold text-blue-600">{formatCurrencyVND(profitData.costs?.actualAdditionalCost || 0)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Tổng giá vốn tạm tính:</span> 
+                  <span className="font-bold">{formatCurrencyVND(profitData.costs?.totalActualCost || 0)}</span>
+                </div>
+                <hr className="my-2 border-slate-100" />
+                <div className="flex justify-between font-bold text-lg text-green-600">
+                  <span>Lợi nhuận gộp tạm tính:</span> 
+                  <span>{formatCurrencyVND(profitData.profit?.grossProfit || 0)}</span>
+                </div>
+                <div className="flex justify-between text-slate-500 font-medium">
+                  <span>Tỷ suất lợi nhuận gộp:</span> 
+                  <span>{profitData.profit?.grossMarginPercent !== null ? profitData.profit?.grossMarginPercent.toFixed(2) + '%' : '--'}</span>
+                </div>
+                
+                {profitData.warnings?.length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-slate-100 space-y-2">
+                    {profitData.warnings.map((w: string, i: number) => (
+                      <div key={i} className="text-xs text-amber-600 italic flex gap-1 items-start">
+                        <span className="text-amber-500">⚠</span> {w}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}

@@ -26,12 +26,11 @@ export default async function PrintOutboundReceiptPage({ params }: { params: Pro
   const totalCost = receipt.items.reduce((sum: number, item: any) => sum + (item.totalCost || 0), 0);
 
   return (
-    <div className="bg-gray-100 min-h-screen py-8 print:py-0 print:bg-white font-serif">
+    <div className="bg-gray-100 min-h-screen py-8 print:py-0 print:bg-white" style={{ fontFamily: '"Times New Roman", "DejaVu Serif", serif' }}>
       {/* Nút in (chỉ hiện trên màn hình, ẩn khi in) */}
       <div className="max-w-[210mm] mx-auto mb-4 flex justify-end print:hidden">
         <button
           className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700"
-          onClick="window.print()"
         >
           <Printer className="w-4 h-4" />
           In phiếu
@@ -43,9 +42,10 @@ export default async function PrintOutboundReceiptPage({ params }: { params: Pro
         {/* Header */}
         <div className="flex justify-between items-start border-b-2 border-black pb-4 mb-6">
           <div>
-            <h1 className="text-xl font-bold uppercase">CÔNG TY ...</h1>
-            <p className="text-sm">Địa chỉ: ...</p>
-            <p className="text-sm">Điện thoại: ...</p>
+            <h1 className="text-xl font-bold uppercase">CTY TNHH SX TM DV HOA SEN VIỆT</h1>
+            <p className="text-sm">MST: 0313096606</p>
+            <p className="text-sm">Địa chỉ: 381 Nguyễn Sơn, P.Phú Thạnh, TP.HCM</p>
+            <p className="text-sm">Mail: kt.insieutoc@gmail.com</p>
           </div>
           <div className="text-right">
             <p className="text-sm">Mẫu số: 02-VT</p>
@@ -69,7 +69,7 @@ export default async function PrintOutboundReceiptPage({ params }: { params: Pro
           {receipt.productionJobId && (
             <div className="flex gap-4">
               <span className="w-32">Lệnh sản xuất:</span>
-              <span className="font-semibold">{receipt.productionJobId}</span>
+              <span className="font-semibold">{(receipt as any).productionJob?.jobCode || receipt.productionJobId}</span>
             </div>
           )}
           {receipt.orderId && (
@@ -144,8 +144,15 @@ export default async function PrintOutboundReceiptPage({ params }: { params: Pro
           </tbody>
         </table>
 
-        {/* Signatures */}
+        {/* Date */}
         <div className="grid grid-cols-4 gap-4 text-center mt-8 text-sm">
+          <div className="col-start-4">
+            <p className="italic mb-2 text-xs">Ngày ..... tháng ..... năm .....</p>
+          </div>
+        </div>
+
+        {/* Signatures */}
+        <div className="grid grid-cols-4 gap-4 text-center text-sm">
           <div>
             <p className="font-bold mb-16">Người lập phiếu</p>
             <p className="text-xs italic">(Ký, họ tên)</p>
@@ -159,7 +166,6 @@ export default async function PrintOutboundReceiptPage({ params }: { params: Pro
             <p className="text-xs italic">(Ký, họ tên)</p>
           </div>
           <div>
-            <p className="italic mb-1 text-xs">Ngày ..... tháng ..... năm .....</p>
             <p className="font-bold mb-16">Kế toán trưởng</p>
             <p className="text-xs italic">(Ký, họ tên)</p>
           </div>

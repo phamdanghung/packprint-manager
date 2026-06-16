@@ -1,10 +1,10 @@
 'use server';
-
+import { safeRevalidatePath } from '@/lib/safe-revalidate';
 import { db } from './db';
 import { getCurrentUser } from './auth';
 import { Prisma } from '@prisma/client';
 import { createAuditLog } from './audit-log';
-import { revalidatePath } from 'next/cache';
+import {  } from "next/cache";
 import { reserveInventory } from './inventory-actions';
 import { createPostPrintRoute } from './post-print-actions';
 
@@ -152,7 +152,7 @@ export async function createPrintQueueItem(input: any) {
   });
 
   await logQueueAction(item.id, user.id, 'CREATE', { note: 'Khởi tạo thẻ in mới', toStatus: status });
-  revalidatePath('/dashboard/production-schedule');
+  safeRevalidatePath('/dashboard/production-schedule');
   return { success: true, item };
 }
 
@@ -185,7 +185,7 @@ export async function assignMachine(id: string, machineId: string) {
   });
 
   await logQueueAction(id, user.id, 'ASSIGN_MACHINE', { note: `Gán/Đổi sang máy ${machineId}`, fromStatus: item.status, toStatus: newStatus });
-  revalidatePath('/dashboard/production-schedule');
+  safeRevalidatePath('/dashboard/production-schedule');
   return { success: true };
 }
 
@@ -277,7 +277,7 @@ export async function changePrintStatus(id: string, newStatus: string, reason?: 
     }
   }
 
-  revalidatePath('/dashboard/production-schedule');
+  safeRevalidatePath('/dashboard/production-schedule');
   return { success: true };
 }
 
@@ -306,7 +306,7 @@ export async function updatePrintProgress(id: string, printedSheets: number) {
     printedSheetsBefore: item.printedSheets, 
     printedSheetsAfter: printedSheets 
   });
-  revalidatePath('/dashboard/production-schedule');
+  safeRevalidatePath('/dashboard/production-schedule');
   return { success: true };
 }
 
@@ -344,7 +344,7 @@ export async function reserveMaterialForPrintJob(id: string) {
   });
 
   await logQueueAction(id, user.id, 'RESERVE_MATERIAL', { note: `Đã giữ ${item.totalSheets} tờ ${item.material?.name}` });
-  revalidatePath('/dashboard/production-schedule');
+  safeRevalidatePath('/dashboard/production-schedule');
   return { success: true };
 }
 
@@ -366,6 +366,6 @@ export async function reorderPrintQueue(machineId: string, itemIds: string[]) {
     )
   );
 
-  revalidatePath('/dashboard/production-schedule');
+  safeRevalidatePath('/dashboard/production-schedule');
   return { success: true };
 }

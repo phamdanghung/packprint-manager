@@ -12,7 +12,9 @@ export default function OutboundClient({ initialData, userRole }: { initialData:
 
   const filtered = initialData.filter(r => 
     r.receiptCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (r.receiverName && r.receiverName.toLowerCase().includes(searchTerm.toLowerCase()))
+    (r.receiverName && r.receiverName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (r.productionJobId && r.productionJobId.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (r.orderId && r.orderId.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   const canCreate = ['ADMIN', 'MANAGER', 'PRODUCTION'].includes(userRole);

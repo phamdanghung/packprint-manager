@@ -1,8 +1,8 @@
 'use server';
-
+import { safeRevalidatePath } from '@/lib/safe-revalidate';
 import { db } from './db';
 import { getCurrentUser } from './auth';
-import { revalidatePath } from 'next/cache';
+import {  } from "next/cache";
 import { syncSystemTasks } from './task-sync';
 
 export async function checkPostPrintAccess() {
@@ -273,10 +273,10 @@ export async function updateOperationStatus(opId: string, newStatus: string, pay
   await syncSystemTasks('SYSTEM').catch(console.error);
 
   try {
-    revalidatePath('/dashboard/post-print');
-    revalidatePath('/dashboard/post-print/mobile');
-    revalidatePath(`/dashboard/post-print/mobile/operation/${opId}`);
-    revalidatePath('/dashboard/production-schedule');
+    safeRevalidatePath('/dashboard/post-print');
+    safeRevalidatePath('/dashboard/post-print/mobile');
+    safeRevalidatePath(`/dashboard/post-print/mobile/operation/${opId}`);
+    safeRevalidatePath('/dashboard/production-schedule');
   } catch (e) {}
   return { success: true };
 }
@@ -308,8 +308,8 @@ export async function claimProductionOperation(opId: string) {
   await syncSystemTasks('SYSTEM').catch(console.error);
 
   try {
-    revalidatePath('/dashboard/post-print');
-    revalidatePath('/dashboard/post-print/mobile');
+    safeRevalidatePath('/dashboard/post-print');
+    safeRevalidatePath('/dashboard/post-print/mobile');
   } catch (e) {}
   return { success: true };
 }
@@ -347,9 +347,9 @@ export async function resolveProductionOperationError(opId: string, note?: strin
   await syncSystemTasks('SYSTEM').catch(console.error);
 
   try {
-    revalidatePath('/dashboard/post-print');
-    revalidatePath('/dashboard/post-print/mobile');
-    revalidatePath(`/dashboard/post-print/mobile/operation/${opId}`);
+    safeRevalidatePath('/dashboard/post-print');
+    safeRevalidatePath('/dashboard/post-print/mobile');
+    safeRevalidatePath(`/dashboard/post-print/mobile/operation/${opId}`);
   } catch (e) {}
   return { success: true };
 }
@@ -382,7 +382,7 @@ export async function updateOperationQuantity(opId: string, goodSheets: number, 
 
   await syncSystemTasks('SYSTEM').catch(console.error);
 
-  try { revalidatePath('/dashboard/post-print'); } catch (e) {}
+  try { safeRevalidatePath('/dashboard/post-print'); } catch (e) {}
   return { success: true };
 }
 
@@ -417,7 +417,7 @@ export async function assignOperationUserOrMachine(opId: string, payload: { user
 
   await syncSystemTasks('SYSTEM').catch(console.error);
 
-  try { revalidatePath('/dashboard/post-print'); } catch (e) {}
+  try { safeRevalidatePath('/dashboard/post-print'); } catch (e) {}
   return { success: true };
 }
 

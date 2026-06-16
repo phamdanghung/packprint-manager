@@ -37,6 +37,7 @@ interface MenuItem {
 const MENU_ITEMS: MenuItem[] = [
   { name: 'Dashboard Tổng quan', href: '/dashboard', icon: LayoutDashboard, roles: ['ADMIN', 'MANAGER', 'SALES', 'DESIGNER', 'PRODUCTION', 'ACCOUNTANT', 'DELIVERY'] },
   { name: 'Báo cáo', href: '/dashboard/reports', icon: BarChart, roles: ['ADMIN', 'MANAGER', 'SALES', 'ACCOUNTANT', 'PRODUCTION', 'DELIVERY'] },
+  { name: 'Quản trị Chi phí', href: '/dashboard/reports/management-costing', icon: DollarSign, roles: ['ADMIN', 'MANAGER', 'ACCOUNTANT'] },
   { name: 'Việc cần xử lý', href: '/dashboard/tasks', icon: Bell, roles: ['ADMIN', 'MANAGER', 'SALES', 'DESIGNER', 'PRODUCTION', 'ACCOUNTANT', 'DELIVERY'] },
   { name: 'Khách hàng', href: '/dashboard/customers', icon: Users, roles: ['ADMIN', 'MANAGER', 'SALES'] },
   { name: 'Báo giá', href: '/dashboard/quotes', icon: FileText, roles: ['ADMIN', 'MANAGER', 'SALES', 'ACCOUNTANT'] },

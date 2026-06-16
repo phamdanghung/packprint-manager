@@ -114,7 +114,7 @@ export default function OutboundNewClient({ items }: { items: any[] }) {
         toast.success('Tạo phiếu xuất kho thành công');
         router.push(`/dashboard/inventory/outbound/${res.data.id}`);
       } else {
-        toast.error(res.error || 'Lỗi khi tạo phiếu xuất');
+        toast.error((res as any).error || 'Lỗi khi tạo phiếu xuất');
       }
     } catch (error: any) {
       toast.error(error.message || 'Lỗi hệ thống');

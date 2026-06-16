@@ -956,8 +956,8 @@ export async function createConversionForOrder(input: {
   });
 
   safeRevalidatePath('/dashboard/inventory');
-  revalidatePath('/dashboard/orders');
-  revalidatePath('/dashboard/production');
+  safeRevalidatePath('/dashboard/orders');
+  safeRevalidatePath('/dashboard/production');
   return { success: true, ...result };
 }
 

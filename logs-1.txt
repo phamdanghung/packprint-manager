@@ -1,0 +1,21 @@
+SQLite database found during compile, size: 4734976
+Cleaning up test data...
+Unhandled error during test: PrismaClientKnownRequestError: 
+Invalid `db.inventoryItem.deleteMany()` invocation in
+C:\Users\admin\.gemini\antigravity-ide\scratch\packaging-printing-management\scripts\test-production-material-issue.ts:31:28
+
+  28 });
+  29 if (testItems.length > 0) {
+  30   await db.inventoryTransaction.deleteMany({ where: { itemId: { in: testItems.map(i => i.id) } } });
+→ 31   await db.inventoryItem.deleteMany(
+Foreign key constraint violated on the foreign key
+    at ei.handleRequestError (C:\Users\admin\.gemini\antigravity-ide\scratch\packaging-printing-management\node_modules\@prisma\client\src\runtime\RequestHandler.ts:228:13)
+    at ei.handleAndLogRequestError (C:\Users\admin\.gemini\antigravity-ide\scratch\packaging-printing-management\node_modules\@prisma\client\src\runtime\RequestHandler.ts:174:12)
+    at ei.request (C:\Users\admin\.gemini\antigravity-ide\scratch\packaging-printing-management\node_modules\@prisma\client\src\runtime\RequestHandler.ts:143:12)
+    at async a (C:\Users\admin\.gemini\antigravity-ide\scratch\packaging-printing-management\node_modules\@prisma\client\src\runtime\getPrismaClient.ts:833:24)
+    at async cleanup (C:\Users\admin\.gemini\antigravity-ide\scratch\packaging-printing-management\scripts\test-production-material-issue.ts:31:5)
+    at async runTests (C:\Users\admin\.gemini\antigravity-ide\scratch\packaging-printing-management\scripts\test-production-material-issue.ts:50:3) {
+  code: 'P2003',
+  meta: { modelName: 'InventoryItem', constraint: null },
+  clientVersion: '6.19.3'
+}

@@ -73,6 +73,9 @@ model User {
   confirmedConversions InventoryConversion[] @relation("ConversionConfirmer")
   moldCheckouts        DieCutMoldUsage[]     @relation("MoldCheckedOutBy")
   moldReturns          DieCutMoldUsage[]     @relation("MoldReturnedBy")
+
+  createdCostLines     ProductionCostLine[]  @relation("CostLineCreator")
+  cancelledCostLines   ProductionCostLine[]  @relation("CostLineCanceller")
 }
 
 model Session {
@@ -450,6 +453,8 @@ model ProductionJob {
   qrIssuedAt  DateTime?
   qrRevokedAt DateTime?
   qrScanLogs  ProductionQrScanLog[]
+
+  costLines   ProductionCostLine[]
 }
 
 model ProductionStep {
@@ -1384,4 +1389,46 @@ model InventoryOutboundReceiptItem {
 
   createdAt          DateTime  @default(now())
 }
+
+enum ProductionCostCategory {
+  LABOR
+  OUTSOURCING
+  MACHINE_SERVICE
+  PACKAGING
+  OTHER
+}
+
+enum ProductionCostLineStatus {
+  ACTIVE
+  CANCELLED
+}
+
+model ProductionCostLine {
+  id              String   @id @default(cuid())
+  productionJobId String
+  category        ProductionCostCategory
+  description     String
+  quantity        Int      @default(1)
+  unitCost        Int
+  totalCost       Int
+  status          ProductionCostLineStatus @default(ACTIVE)
+  createdById     String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  note            String?
+  vendorName      String?
+
+  cancelledById   String?
+  cancelledAt     DateTime?
+  cancelReason    String?
+
+  productionJob   ProductionJob @relation(fields: [productionJobId], references: [id])
+  createdBy       User          @relation("CostLineCreator", fields: [createdById], references: [id])
+  cancelledBy     User?         @relation("CostLineCanceller", fields: [cancelledById], references: [id])
+  
+  @@index([productionJobId])
+  @@index([category])
+  @@index([status])
+}
+
 

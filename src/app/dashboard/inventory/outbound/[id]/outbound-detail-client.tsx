@@ -33,7 +33,7 @@ export default function OutboundDetailClient({ receipt, userRole }: { receipt: a
         setShowCancelModal(false);
         router.refresh();
       } else {
-        toast.error(res.error || 'Lỗi khi hủy phiếu xuất');
+        toast.error((res as any).error || 'Lỗi khi hủy phiếu xuất');
       }
     } catch (error: any) {
       toast.error(error.message || 'Lỗi hệ thống');
@@ -115,7 +115,11 @@ export default function OutboundDetailClient({ receipt, userRole }: { receipt: a
             {receipt.productionJobId && (
               <div>
                 <p className="text-gray-500">Lệnh sản xuất</p>
-                <p className="font-medium text-blue-600 mt-1">{receipt.productionJobId}</p>
+                <p className="font-medium mt-1">
+                  <Link href={`/dashboard/production/${receipt.productionJobId}`} className="text-blue-600 hover:underline">
+                    {receipt.productionJob?.jobCode || receipt.productionJobId}
+                  </Link>
+                </p>
               </div>
             )}
             {receipt.orderId && (

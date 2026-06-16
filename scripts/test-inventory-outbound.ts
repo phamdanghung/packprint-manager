@@ -1,14 +1,20 @@
 import { db } from '../src/lib/db';
-import { createOutboundReceipt, cancelOutboundReceipt } from '../src/lib/inventory-outbound-actions';
+import { createOutboundReceiptCore, cancelOutboundReceiptCore } from '../src/lib/inventory-outbound-actions';
 import { generateOutboundReceiptCode } from '../src/lib/inventory-outbound-code';
 import { validateGeneratedCode } from '../src/lib/material-code-generator';
 
 async function cleanup() {
   console.log('Cleaning up test data...');
-  // Delete transactions related to outbound tests
-  await db.inventoryTransaction.deleteMany({
-    where: { reason: { contains: 'TEST-OUTBOUND' } }
+  const testItems = await db.inventoryItem.findMany({
+    where: { itemCode: { contains: 'TEST-OUT' } }
   });
+  const itemIds = testItems.map(i => i.id);
+
+  if (itemIds.length > 0) {
+    await db.inventoryTransaction.deleteMany({
+      where: { itemId: { in: itemIds } }
+    });
+  }
 
   // Find all outbound receipts created in test
   const testReceipts = await db.inventoryOutboundReceipt.findMany({
@@ -29,6 +35,12 @@ async function cleanup() {
 }
 
 async function runTests() {
+  const adminUser = await db.user.findFirst({ where: { role: 'ADMIN' } }) || { id: 'admin', role: 'ADMIN', name: 'Admin' };
+  const managerUser = await db.user.findFirst({ where: { role: 'MANAGER' } }) || { id: 'manager', role: 'MANAGER', name: 'Manager' };
+  const productionUser = await db.user.findFirst({ where: { role: 'PRODUCTION' } }) || { id: 'production', role: 'PRODUCTION', name: 'Production' };
+  const accountantUser = await db.user.findFirst({ where: { role: 'ACCOUNTANT' } }) || { id: 'accountant', role: 'ACCOUNTANT', name: 'Accountant' };
+  const salesUser = await db.user.findFirst({ where: { role: 'SALES' } }) || { id: 'sales', role: 'SALES', name: 'Sales' };
+
   let passedCount = 0;
   let failedCount = 0;
 
@@ -58,10 +70,11 @@ async function runTests() {
 
     const item1 = await db.inventoryItem.create({
       data: {
-        itemCode: `GIAY-TEST-OUT-1_${runId}`, // Standard format simulator
+        itemCode: `GIAY-TEST-OUT-1-${runId}`, // Standard format simulator
         name: 'Vật tư test active',
         category: 'PAPER',
         materialType: 'ROLL',
+        unit: 'ROLL',
         stockBaseUnit: 'MILLIMETER',
         displayUnit: 'METER',
         unitScale: 1000,
@@ -74,10 +87,11 @@ async function runTests() {
 
     const item2 = await db.inventoryItem.create({
       data: {
-        itemCode: `GIAY-TEST-OUT-2_${runId}`,
+        itemCode: `GIAY-TEST-OUT-2-${runId}`,
         name: 'Vật tư test inactive',
         category: 'PAPER',
         materialType: 'ROLL',
+        unit: 'ROLL',
         stockBaseUnit: 'MILLIMETER',
         displayUnit: 'METER',
         unitScale: 1000,
@@ -92,6 +106,7 @@ async function runTests() {
         name: 'Vật tư test chưa chuẩn',
         category: 'OTHER',
         materialType: 'OTHER',
+        unit: 'SHEET',
         stockBaseUnit: 'SHEET',
         displayUnit: 'SHEET',
         unitScale: 1,
@@ -105,13 +120,13 @@ async function runTests() {
     assert(code.startsWith('PXK-') && code.length >= 16, `Receipt code format PXK-YYYYMMDD-XXX (${code})`);
 
     // Test 2: Create valid outbound receipt (single item)
-    const res1 = await createOutboundReceipt({
+    const res1 = await createOutboundReceiptCore({
       outboundType: 'PRODUCTION_ISSUE',
       note: 'TEST-OUTBOUND-1',
       items: [
         { inventoryItemId: item1.id, quantityBase: 1000 }
       ]
-    }, 'PRODUCTION');
+    }, productionUser);
     
     assert(res1.success, 'Tạo phiếu xuất 1 item thành công');
     
@@ -129,6 +144,9 @@ async function runTests() {
     assert(r1Item.stockBeforeBase === 5000, `stockBeforeBase lưu đúng = 5000`);
     assert(r1Item.stockAfterBase === 4000, `stockAfterBase lưu đúng = 4000`);
 
+    const dbItem1_afterExport = await db.inventoryItem.findUnique({ where: { id: item1.id }});
+    assert(dbItem1_afterExport!.averageCost === 1000, `averageCost không bị thay đổi sau khi xuất kho = 1000`);
+
     // Test 6: Transaction creation
     const txs1 = await db.inventoryTransaction.findMany({
       where: { referenceId: r1!.id }
@@ -139,13 +157,13 @@ async function runTests() {
 
     // Test 7: Export more than stock
     try {
-      await createOutboundReceipt({
+      await createOutboundReceiptCore({
         outboundType: 'PRODUCTION_ISSUE',
         note: 'TEST-OUTBOUND-FAIL-STOCK',
         items: [
           { inventoryItemId: item1.id, quantityBase: 10000 } // only 4000 left
         ]
-      }, 'PRODUCTION');
+      }, productionUser);
       assert(false, 'Should reject export more than stock');
     } catch (e: any) {
       assert(e.message.includes('Không đủ tồn kho'), 'Reject export quá tồn: ' + e.message);
@@ -153,13 +171,13 @@ async function runTests() {
 
     // Test 8: quantityBase <= 0
     try {
-      await createOutboundReceipt({
+      await createOutboundReceiptCore({
         outboundType: 'PRODUCTION_ISSUE',
         note: 'TEST-OUTBOUND',
         items: [
           { inventoryItemId: item1.id, quantityBase: -50 }
         ]
-      }, 'PRODUCTION');
+      }, productionUser);
       assert(false, 'Should reject quantity <= 0');
     } catch (e: any) {
       assert(e.message.includes('phải là số nguyên > 0'), 'quantityBase <= 0 bị reject');
@@ -167,13 +185,13 @@ async function runTests() {
 
     // Test 9: inactive item
     try {
-      await createOutboundReceipt({
+      await createOutboundReceiptCore({
         outboundType: 'PRODUCTION_ISSUE',
         note: 'TEST-OUTBOUND',
         items: [
           { inventoryItemId: item2.id, quantityBase: 10 }
         ]
-      }, 'PRODUCTION');
+      }, productionUser);
       assert(false, 'Should reject inactive item');
     } catch (e: any) {
       assert(e.message.includes('ngừng sử dụng'), 'item inactive bị reject');
@@ -181,13 +199,13 @@ async function runTests() {
 
     // Test 10: STRICT mode unstandard code
     try {
-      await createOutboundReceipt({
+      await createOutboundReceiptCore({
         outboundType: 'PRODUCTION_ISSUE',
         note: 'TEST-OUTBOUND',
         items: [
           { inventoryItemId: item3.id, quantityBase: 10 }
         ]
-      }, 'PRODUCTION');
+      }, productionUser);
       assert(false, 'Should reject non-standard item');
     } catch (e: any) {
       assert(e.message.includes('chưa có mã chuẩn'), 'STRICT mode chặn item chưa chuẩn');
@@ -195,14 +213,14 @@ async function runTests() {
 
     // Test 11: Duplicate item
     try {
-      await createOutboundReceipt({
+      await createOutboundReceiptCore({
         outboundType: 'PRODUCTION_ISSUE',
         note: 'TEST-OUTBOUND',
         items: [
           { inventoryItemId: item1.id, quantityBase: 10 },
           { inventoryItemId: item1.id, quantityBase: 20 }
         ]
-      }, 'PRODUCTION');
+      }, productionUser);
       assert(false, 'Should reject duplicate item');
     } catch (e: any) {
       assert(e.message.includes('Vật tư bị trùng'), 'Duplicate item bị reject');
@@ -212,11 +230,11 @@ async function runTests() {
     const blockRoles = ['SALES', 'DESIGNER', 'DELIVERY', 'ACCOUNTANT'];
     for (const r of blockRoles) {
       try {
-        await createOutboundReceipt({
+        await createOutboundReceiptCore({
           outboundType: 'PRODUCTION_ISSUE',
           note: 'TEST-OUTBOUND',
           items: [{ inventoryItemId: item1.id, quantityBase: 10 }]
-        }, r);
+        }, { id: 'test', role: r, name: 'Test' });
         assert(false, `Role ${r} should not be able to create`);
       } catch (e: any) {
         assert(e.message.includes('không có quyền'), `Role ${r} bị chặn tạo phiếu`);
@@ -224,29 +242,30 @@ async function runTests() {
     }
 
     // Cancel Outbound Receipt Tests
-    const res2 = await createOutboundReceipt({
+    const res2 = await createOutboundReceiptCore({
       outboundType: 'OTHER',
       note: 'TEST-OUTBOUND-CANCEL',
       items: [
         { inventoryItemId: item1.id, quantityBase: 500 }
       ]
-    }, 'ADMIN');
+    }, adminUser);
     
     // Test 13: Cancel rollback
     const r2Id = res2.data.id;
-    const cancelRes = await cancelOutboundReceipt(r2Id, 'Sai số lượng', 'ADMIN');
+    const cancelRes = await cancelOutboundReceiptCore(r2Id, 'Sai số lượng', adminUser);
     assert(cancelRes.success, 'Hủy phiếu xuất thành công');
 
     const dbItem1_afterCancel = await db.inventoryItem.findUnique({ where: { id: item1.id }});
     // It was 4000, exported 500 => 3500, cancelled 500 => 4000
     assert(dbItem1_afterCancel!.currentStockBase === 4000, `Cancel rollback tồn đúng: 3500 + 500 = ${dbItem1_afterCancel!.currentStockBase}`);
+    assert(dbItem1_afterCancel!.averageCost === 1000, `averageCost không bị thay đổi sau khi cancel xuất kho = 1000`);
 
     const r2Db = await db.inventoryOutboundReceipt.findUnique({ where: { id: r2Id }});
     assert(r2Db!.status === 'CANCELLED', 'Trạng thái phiếu chuyển sang CANCELLED');
 
     // Test 14: Cancel already cancelled
     try {
-      await cancelOutboundReceipt(r2Id, 'Thử hủy lại', 'ADMIN');
+      await cancelOutboundReceiptCore(r2Id, 'Thử hủy lại', adminUser);
       assert(false, 'Should reject cancel again');
     } catch (e: any) {
       assert(e.message.includes('đã bị hủy rồi'), 'Không cho hủy phiếu đã CANCELLED');

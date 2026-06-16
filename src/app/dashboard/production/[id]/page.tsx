@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import React from 'react';
 import { getProductionJobById } from '@/lib/production-actions';
 import Unauthorized from '@/components/unauthorized';
@@ -5,10 +6,12 @@ import { getCurrentUser } from '@/lib/auth';
 import ProductionJobDetailClient from '@/components/production/production-job-detail-client';
 
 import { findParentMaterialFulfillment } from '@/lib/inventory-fulfillment';
+import { getProductionMaterialIssueStatus } from '@/lib/production-material-issue-actions';
+import { getProductionJobCosting } from '@/lib/production-costing-actions';
 
 export default async function ProductionJobDetailPage({ params }: { params: { id: string } }) {
   const user = await getCurrentUser();
-  if (!user || ['ACCOUNTANT'].includes(user.role)) return <Unauthorized />;
+  if (!user || ['DELIVERY'].includes(user.role)) return <Unauthorized />;
   
   const { id } = await params;
   const res = await getProductionJobById(id);
@@ -33,9 +36,21 @@ export default async function ProductionJobDetailPage({ params }: { params: { id
     }));
   }
 
+  const materialIssueRes = await getProductionMaterialIssueStatus(job.id);
+  const materialIssueStatus = materialIssueRes.success ? materialIssueRes.data : null;
+
+  const costingRes = await getProductionJobCosting(job.id);
+  const costingData = costingRes.success ? costingRes.data : null;
+
   return (
     <div className="space-y-6">
-      <ProductionJobDetailClient job={job} userRole={user.role} fulfillmentDataMap={fulfillmentDataMap} />
+      <ProductionJobDetailClient 
+        job={job} 
+        userRole={user.role} 
+        fulfillmentDataMap={fulfillmentDataMap} 
+        materialIssueStatus={materialIssueStatus}
+        costingData={costingData}
+      />
     </div>
   );
 }
