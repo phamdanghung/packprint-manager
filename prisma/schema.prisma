@@ -42,6 +42,7 @@ model User {
   assignedCustomers Customer[] @relation("CustomerAssignedSales")
   assignedQuotes    Quote[]    @relation("QuoteAssignedSales")
   assignedOrders    Order[]    @relation("OrderAssignedSales")
+  reviewedMarginOrders Order[] @relation("OrderMarginReviewer")
 
   // CRM
   customerNotes      CustomerNote[]
@@ -317,6 +318,10 @@ model Order {
   createdById           String?
   assignedDesignerId    String?
   assignedProductionId  String?
+  managementMarginFlag         Boolean                @default(false)
+  managementMarginNote         String?
+  managementMarginReviewedAt   DateTime?
+  managementMarginReviewedById String?
   createdAt             DateTime               @default(now())
   updatedAt             DateTime               @updatedAt
   deliveryJob           DeliveryJob?
@@ -329,6 +334,7 @@ model Order {
   productionJob         ProductionJob?
   assignedSalesId       String?
   assignedSales         User?                  @relation("OrderAssignedSales", fields: [assignedSalesId], references: [id])
+  managementMarginReviewedBy   User?                  @relation("OrderMarginReviewer", fields: [managementMarginReviewedById], references: [id])
   tasks                 TaskItem[]
   inventoryTransactions InventoryTransaction[]
   inventoryReservations InventoryReservation[]
@@ -1429,6 +1435,24 @@ model ProductionCostLine {
   @@index([productionJobId])
   @@index([category])
   @@index([status])
+}
+
+model DieCutMachineConfig {
+  id              String   @id @default(cuid())
+  machineCode     String
+  machineName     String
+  sheetSizeCode   String
+  sheetLabel      String
+  sheetWidthCm    Float
+  sheetHeightCm   Float
+  usableWidthCm   Float
+  usableHeightCm  Float
+  isActive        Boolean  @default(true)
+  note            String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([machineCode, sheetSizeCode])
 }
 
 

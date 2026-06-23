@@ -14,6 +14,10 @@ import {
   getPricingRules, updatePricingRule, togglePricingRuleStatus,
   getFileHandlingFees, createFileHandlingFee, updateFileHandlingFee, toggleFileHandlingFeeStatus,
 } from '@/lib/pricing-actions';
+import {
+  getDieCutMachineConfigs, createDieCutMachineConfig, updateDieCutMachineConfig, toggleDieCutMachineConfigStatus
+} from '@/lib/diecut-machine-actions';
+import { Settings } from 'lucide-react';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 type Material = Awaited<ReturnType<typeof getMaterials>>[0];
@@ -21,6 +25,7 @@ type LaminationPrice = Awaited<ReturnType<typeof getLaminationPrices>>[0];
 type DieCutPrice = Awaited<ReturnType<typeof getDieCutPrices>>[0];
 type PricingRule = Awaited<ReturnType<typeof getPricingRules>>[0];
 type FileHandlingFee = Awaited<ReturnType<typeof getFileHandlingFees>>[0];
+type DieCutMachineConfig = Awaited<ReturnType<typeof getDieCutMachineConfigs>>[0];
 
 interface Props {
   initialMaterials: Material[];
@@ -28,6 +33,7 @@ interface Props {
   initialDieCutPrices: DieCutPrice[];
   initialPricingRules: PricingRule[];
   initialFileHandlingFees: FileHandlingFee[];
+  initialDieCutMachineConfigs: DieCutMachineConfig[];
   userRole: string;
 }
 
@@ -61,6 +67,7 @@ const TABS = [
   { id: 'materials', label: 'Vật tư in', icon: Package },
   { id: 'lamination', label: 'Cán màng', icon: Layers },
   { id: 'diecut', label: 'Bế demi', icon: Scissors },
+  { id: 'diecut-machine', label: 'Cấu hình máy bế', icon: Settings },
   { id: 'rules', label: 'Quy tắc tính giá', icon: BookOpen },
   { id: 'fees', label: 'Phí xử lý file', icon: FileText },
 ];
@@ -161,11 +168,114 @@ function EmptyState({ text }: { text: string }) {
 // ══════════════════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ══════════════════════════════════════════════════════════════════════════════
-export default function PricingConfigClient({ initialMaterials, initialLaminationPrices, initialDieCutPrices, initialPricingRules, initialFileHandlingFees }: Props) {
+export default function PricingConfigClient({
+  initialMaterials,
+  initialLaminationPrices,
+  initialDieCutPrices,
+  initialPricingRules,
+  initialFileHandlingFees,
+  initialDieCutMachineConfigs,
+  userRole
+}: Props) {
   const [activeTab, setActiveTab] = useState('materials');
   const [isPending, startTransition] = useTransition();
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
   const showToast = (type: 'success' | 'error', msg: string) => { setToast({ type, msg }); setTimeout(() => setToast(null), 4000); };
+
+  const canEdit = ['ADMIN', 'MANAGER'].includes(userRole);
+
+  // ── DieCutMachineConfig state
+  const [dieCutMachines, setDieCutMachines] = useState(initialDieCutMachineConfigs);
+  const [dcmModal, setDcmModal] = useState(false);
+  const [editDcm, setEditDcm] = useState<DieCutMachineConfig | null>(null);
+  const [dcmMachineCode, setDcmMachineCode] = useState('');
+  const [dcmMachineName, setDcmMachineName] = useState('');
+  const [dcmSheetSizeCode, setDcmSheetSizeCode] = useState('');
+  const [dcmSheetLabel, setDcmSheetLabel] = useState('');
+  const [dcmSheetWidth, setDcmSheetWidth] = useState('');
+  const [dcmSheetHeight, setDcmSheetHeight] = useState('');
+  const [dcmUsableWidth, setDcmUsableWidth] = useState('');
+  const [dcmUsableHeight, setDcmUsableHeight] = useState('');
+  const [dcmNote, setDcmNote] = useState('');
+  const [dcmErr, setDcmErr] = useState<string | null>(null);
+
+  const openDcmModal = (m?: DieCutMachineConfig) => {
+    if (!canEdit) return;
+    setEditDcm(m || null);
+    setDcmMachineCode(m?.machineCode || '');
+    setDcmMachineName(m?.machineName || '');
+    setDcmSheetSizeCode(m?.sheetSizeCode || '');
+    setDcmSheetLabel(m?.sheetLabel || '');
+    setDcmSheetWidth(m ? String(m.sheetWidthCm) : '');
+    setDcmSheetHeight(m ? String(m.sheetHeightCm) : '');
+    setDcmUsableWidth(m ? String(m.usableWidthCm) : '');
+    setDcmUsableHeight(m ? String(m.usableHeightCm) : '');
+    setDcmNote(m?.note || '');
+    setDcmErr(null);
+    setDcmModal(true);
+  };
+
+  const submitDcm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canEdit) return;
+    setDcmErr(null);
+
+    const sheetWidthCm = parseFloat(dcmSheetWidth);
+    const sheetHeightCm = parseFloat(dcmSheetHeight);
+    const usableWidthCm = parseFloat(dcmUsableWidth);
+    const usableHeightCm = parseFloat(dcmUsableHeight);
+
+    if (isNaN(sheetWidthCm) || sheetWidthCm <= 0 || isNaN(sheetHeightCm) || sheetHeightCm <= 0) {
+      return setDcmErr('Kích thước khổ in phải lớn hơn 0.');
+    }
+    if (isNaN(usableWidthCm) || usableWidthCm <= 0 || isNaN(usableHeightCm) || usableHeightCm <= 0) {
+      return setDcmErr('Kích thước vùng bế khả dụng phải lớn hơn 0.');
+    }
+    if (usableWidthCm > sheetWidthCm) {
+      return setDcmErr('Chiều rộng vùng bế khả dụng không được lớn hơn chiều rộng khổ in.');
+    }
+    if (usableHeightCm > sheetHeightCm) {
+      return setDcmErr('Chiều cao vùng bế khả dụng không được lớn hơn chiều cao khổ in.');
+    }
+
+    const data = {
+      machineCode: dcmMachineCode,
+      machineName: dcmMachineName,
+      sheetSizeCode: dcmSheetSizeCode,
+      sheetLabel: dcmSheetLabel,
+      sheetWidthCm,
+      sheetHeightCm,
+      usableWidthCm,
+      usableHeightCm,
+      note: dcmNote
+    };
+
+    startTransition(async () => {
+      const res = editDcm 
+        ? await updateDieCutMachineConfig(editDcm.id, data) 
+        : await createDieCutMachineConfig(data);
+      if (res.success) {
+        showToast('success', editDcm ? 'Cập nhật cấu hình thành công.' : 'Thêm cấu hình mới thành công.');
+        setDcmModal(false);
+        setDieCutMachines(await getDieCutMachineConfigs());
+      } else {
+        setDcmErr(res.error || 'Lỗi không xác định.');
+      }
+    });
+  };
+
+  const toggleDcm = async (m: DieCutMachineConfig) => {
+    if (!canEdit) return;
+    startTransition(async () => {
+      const res = await toggleDieCutMachineConfigStatus(m.id);
+      if (res.success) {
+        showToast('success', `Đã thay đổi trạng thái cấu hình.`);
+        setDieCutMachines(await getDieCutMachineConfigs());
+      } else {
+        showToast('error', res.error || 'Lỗi.');
+      }
+    });
+  };
 
   // ── Materials state
   const [materials, setMaterials] = useState(initialMaterials);
@@ -719,6 +829,97 @@ export default function PricingConfigClient({ initialMaterials, initialLaminatio
             <button type="button" onClick={() => setFeeModal(false)} className="px-4 py-2 rounded-xl border text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer">Hủy</button>
             <button type="submit" disabled={isPending} className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-bold bg-teal-500 hover:bg-teal-400 text-white disabled:opacity-60 cursor-pointer">
               {isPending ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Đang lưu...</> : 'Lưu'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* ────── TAB: CẤU HÌNH MÁY BẾ ────── */}
+      {activeTab === 'diecut-machine' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-bold text-slate-800 dark:text-white">Cấu hình máy bế ({dieCutMachines.length})</span>
+            {canEdit && (
+              <button onClick={() => openDcmModal()} className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold bg-teal-500 hover:bg-teal-400 text-white shadow-md shadow-teal-500/10 cursor-pointer transition-all">
+                <PlusCircle className="h-4 w-4" /><span>Thêm cấu hình</span>
+              </button>
+            )}
+          </div>
+          {dieCutMachines.length === 0 ? <EmptyState text="Chưa có cấu hình máy bế nào." /> : (
+            <TableWrap>
+              <thead><tr className="border-b border-slate-100 dark:border-slate-800">
+                <Th>Mã máy bế</Th><Th>Tên máy bế</Th><Th>Khổ in</Th><Th>Kích thước khổ (cm)</Th>
+                <Th>Vùng bế khả dụng (cm)</Th><Th>Trạng thái</Th><Th>Ghi chú</Th>{canEdit && <Th center>Hành động</Th>}
+              </tr></thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
+                {dieCutMachines.map((m) => (
+                  <tr key={m.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/20 transition-all">
+                    <Td><span className="font-mono font-bold text-teal-600 dark:text-teal-400 text-[11px]">{m.machineCode}</span></Td>
+                    <Td><span className="font-semibold text-slate-800 dark:text-slate-200">{m.machineName}</span></Td>
+                    <Td><span className="font-semibold text-slate-800 dark:text-slate-200">{m.sheetLabel} ({m.sheetSizeCode})</span></Td>
+                    <Td><span className="font-mono text-slate-600 dark:text-slate-400">{m.sheetWidthCm} × {m.sheetHeightCm}</span></Td>
+                    <Td><span className="font-mono font-bold text-orange-600 dark:text-orange-400">{m.usableWidthCm} × {m.usableHeightCm}</span></Td>
+                    <Td><StatusBadge status={m.isActive ? 'ACTIVE' : 'INACTIVE'} /></Td>
+                    <Td><span className="text-slate-500 text-[11px] max-w-[120px] truncate block">{m.note || '—'}</span></Td>
+                    {canEdit && (
+                      <Td center>
+                        <div className="flex items-center justify-center gap-1">
+                          <ActionBtn onClick={() => openDcmModal(m)} icon={Edit3} color="hover:bg-indigo-500/10 hover:text-indigo-500" title="Sửa cấu hình" />
+                          <ActionBtn onClick={() => toggleDcm(m)} icon={Power} color={m.isActive ? 'hover:bg-rose-500/10 hover:text-rose-500' : 'hover:bg-emerald-500/10 hover:text-emerald-500'} title={m.isActive ? 'Tắt' : 'Bật'} />
+                        </div>
+                      </Td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </TableWrap>
+          )}
+        </div>
+      )}
+
+      {/* Modal: Cấu hình máy bế */}
+      <Modal open={dcmModal} onClose={() => setDcmModal(false)} title={editDcm ? `Sửa cấu hình máy bế` : 'Thêm cấu hình máy bế mới'}>
+        {dcmErr && <div className="flex items-center gap-2 p-3 rounded-xl text-xs bg-rose-500/10 text-rose-500 border border-rose-500/20"><AlertCircle className="h-4 w-4 flex-shrink-0" />{dcmErr}</div>}
+        <form onSubmit={submitDcm} className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <FormInput label="Mã máy bế" id="dcm-machine-code" required>
+              <input id="dcm-machine-code" className={inputCls} value={dcmMachineCode} onChange={e => setDcmMachineCode(e.target.value)} placeholder="VD: GRAPHTEC, AVITECH, NONE" disabled={!!editDcm || isPending} />
+            </FormInput>
+            <FormInput label="Tên máy bế" id="dcm-machine-name" required>
+              <input id="dcm-machine-name" className={inputCls} value={dcmMachineName} onChange={e => setDcmMachineName(e.target.value)} placeholder="VD: Graphtec FC9000, Avitech Demarc" disabled={isPending} />
+            </FormInput>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <FormInput label="Mã khổ in (sheetSizeCode)" id="dcm-sheet-size-code" required>
+              <input id="dcm-sheet-size-code" className={inputCls} value={dcmSheetSizeCode} onChange={e => setDcmSheetSizeCode(e.target.value)} placeholder="VD: 32x35, 32x43" disabled={!!editDcm || isPending} />
+            </FormInput>
+            <FormInput label="Nhãn khổ in (sheetLabel)" id="dcm-sheet-label" required>
+              <input id="dcm-sheet-label" className={inputCls} value={dcmSheetLabel} onChange={e => setDcmSheetLabel(e.target.value)} placeholder="VD: 32 x 35 cm, 32 x 43 cm" disabled={isPending} />
+            </FormInput>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <FormInput label="Chiều rộng khổ (cm)" required>
+              <input type="number" step="0.01" className={inputCls} value={dcmSheetWidth} onChange={e => setDcmSheetWidth(e.target.value)} placeholder="32" disabled={isPending} />
+            </FormInput>
+            <FormInput label="Chiều cao khổ (cm)" required>
+              <input type="number" step="0.01" className={inputCls} value={dcmSheetHeight} onChange={e => setDcmSheetHeight(e.target.value)} placeholder="35" disabled={isPending} />
+            </FormInput>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <FormInput label="Rộng vùng bế khả dụng (cm)" required>
+              <input type="number" step="0.01" className={inputCls} value={dcmUsableWidth} onChange={e => setDcmUsableWidth(e.target.value)} placeholder="30.5" disabled={isPending} />
+            </FormInput>
+            <FormInput label="Cao vùng bế khả dụng (cm)" required>
+              <input type="number" step="0.01" className={inputCls} value={dcmUsableHeight} onChange={e => setDcmUsableHeight(e.target.value)} placeholder="31.5" disabled={isPending} />
+            </FormInput>
+          </div>
+          <FormInput label="Ghi chú">
+            <input className={inputCls} value={dcmNote} onChange={e => setDcmNote(e.target.value)} placeholder="Ghi chú thêm..." disabled={isPending} />
+          </FormInput>
+          <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+            <button type="button" onClick={() => setDcmModal(false)} className="px-4 py-2 rounded-xl border text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer">Hủy</button>
+            <button type="submit" disabled={isPending} className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-bold bg-teal-500 hover:bg-teal-400 text-white disabled:opacity-60 cursor-pointer">
+              {isPending ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Đang lưu...</> : 'Lưu cấu hình'}
             </button>
           </div>
         </form>

@@ -8,18 +8,19 @@ export default async function PricingConfigPage() {
   const user = await getCurrentUser();
   if (!user) return null;
 
-  // Server-side guard: chỉ ADMIN và MANAGER được truy cập
-  if (!['ADMIN', 'MANAGER'].includes(user.role)) {
+  // Server-side guard: ADMIN, MANAGER được thay đổi; ACCOUNTANT được xem read-only
+  if (!['ADMIN', 'MANAGER', 'ACCOUNTANT'].includes(user.role)) {
     return <Unauthorized />;
   }
 
   // Tải tất cả dữ liệu song song từ database
-  const [materials, laminationPrices, dieCutPrices, pricingRules, fileHandlingFees] = await Promise.all([
+  const [materials, laminationPrices, dieCutPrices, pricingRules, fileHandlingFees, dieCutMachineConfigs] = await Promise.all([
     db.material.findMany({ orderBy: { materialCode: 'asc' } }),
     db.laminationPrice.findMany({ orderBy: { laminationType: 'asc' } }),
     db.dieCutPrice.findMany({ orderBy: { minSheets: 'asc' } }),
     db.pricingRule.findMany({ orderBy: { ruleCode: 'asc' } }),
     db.fileHandlingFee.findMany({ orderBy: { minQuantity: 'asc' } }),
+    db.dieCutMachineConfig.findMany({ orderBy: { machineCode: 'asc' } }),
   ]);
 
   return (
@@ -29,6 +30,7 @@ export default async function PricingConfigPage() {
       initialDieCutPrices={dieCutPrices}
       initialPricingRules={pricingRules}
       initialFileHandlingFees={fileHandlingFees}
+      initialDieCutMachineConfigs={dieCutMachineConfigs}
       userRole={user.role}
     />
   );

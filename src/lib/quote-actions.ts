@@ -4,6 +4,8 @@ import { db } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import { DecalQuoteRequest, calculateDecalQuoteFromDb } from './pricing-engine/adapter';
 import { CalculatorOutput } from './pricing-engine/types';
+import { calculateDigitalLabelQuote } from '@/lib/pricing/digital-label/digital-label-pricing-engine';
+import { DigitalLabelInput, LabelShape } from '@/lib/pricing/digital-label/types';
 
 export async function checkQuoteAuth(allowedRoles: string[]) {
   const user = await getCurrentUser();
@@ -33,8 +35,16 @@ export async function getActiveLaminations() {
 export async function getActiveMachines() {
   const auth = await checkQuoteAuth(['ADMIN', 'MANAGER', 'SALES']);
   if (!auth.ok) return { success: false, error: auth.error };
-  const data = await db.machineConfig.findMany({ where: { status: 'ACTIVE' } });
-  return { success: true, data };
+  const mcModel = (db as any).machineConfig;
+  if (mcModel && typeof mcModel.findMany === 'function') {
+    try {
+      const data = await mcModel.findMany({ where: { status: 'ACTIVE' } });
+      return { success: true, data };
+    } catch (e) {
+      console.error('Failed to safely query getActiveMachines:', e);
+    }
+  }
+  return { success: true, data: [] };
 }
 
 // 1. Tính giá preview
@@ -51,6 +61,107 @@ export async function calculateQuotePreview(input: DecalQuoteRequest): Promise<{
     return { success: true, data: result };
   } catch (error: any) {
     console.error('Lỗi tính giá preview:', error);
+    return { success: false, error: error.message || 'Có lỗi xảy ra khi tính giá' };
+  }
+}
+
+export async function calculateDigitalLabelQuotePreviewAction(input: any) {
+  try {
+    const auth = await checkQuoteAuth(['ADMIN', 'MANAGER', 'SALES', 'ACCOUNTANT', 'PRODUCTION', 'DESIGNER', 'DELIVERY']);
+    if (!auth.ok) return { success: false, error: auth.error };
+
+    // 1. Fetch related entities
+    const material = input.materialId ? await db.material.findUnique({ where: { id: input.materialId } }) : null;
+    const lamination = input.laminationId ? await db.laminationPrice.findUnique({ where: { id: input.laminationId } }) : null;
+    
+    // 2. Mock or fetch die cut prices. For MVP, fetch first active or use a safe default if missing.
+    let dieCutPricePerSheet = 0;
+    if (input.dieCutType === 'SHAPE' || input.dieCutType === 'STRAIGHT') {
+      const dieCutPrices = await db.dieCutPrice.findMany({ where: { status: 'ACTIVE' }, orderBy: { minSheets: 'asc' } });
+      if (dieCutPrices.length > 0) {
+        dieCutPricePerSheet = input.dieCutType === 'SHAPE' ? dieCutPrices[0].shapeCutPrice : dieCutPrices[0].straightCutPrice;
+      }
+    }
+
+    // 3. Fetch file handling fees
+    let fileProcessingFee = 0;
+    const fileFees = await db.fileHandlingFee.findMany({ where: { status: 'ACTIVE' }, orderBy: { minQuantity: 'asc' } });
+    const applicableFee = fileFees.reverse().find(f => input.quantity >= f.minQuantity);
+    if (applicableFee) fileProcessingFee = applicableFee.feeAmount;
+
+    let widthCm = input.widthCm;
+    let heightCm = input.heightCm;
+    if (input.labelShape === 'CIRCLE') {
+      widthCm = input.diameterCm;
+      heightCm = input.diameterCm;
+    }
+
+    // 4. Adapt Sheet Sizing and Safe Zones dynamically from DB Configuration
+    const dieCutMachine = (input.dieCutMachine || 'Graphtec').trim().toUpperCase();
+    const sheetSize = (input.sheetSize || '32x35').toLowerCase().replace(/\s+/g, '').replace(/cm$/g, '');
+
+    const activeConfig = await db.dieCutMachineConfig.findFirst({
+      where: {
+        machineCode: dieCutMachine,
+        sheetSizeCode: sheetSize,
+        isActive: true
+      }
+    });
+
+    if (!activeConfig) {
+      return {
+        success: true,
+        data: {
+          sellingPrice: 0,
+          vatAmount: 0,
+          totalAmount: 0,
+          unitPrice: 0,
+          safeWarnings: ['MISSING_DIECUT_MACHINE_CONFIG'],
+          blockPreview: true
+        }
+      };
+    }
+
+    const sheetWidthCm = activeConfig.sheetWidthCm;
+    const sheetHeightCm = activeConfig.sheetHeightCm;
+    const usableWidthCm = activeConfig.usableWidthCm;
+    const usableHeightCm = activeConfig.usableHeightCm;
+
+    // 5. Construct strictly-typed input
+    const engineInput: DigitalLabelInput = {
+      role: auth.user!.role as any,
+      quantity: input.quantity,
+      labelShape: input.labelShape as LabelShape,
+      widthCm: widthCm || 0,
+      heightCm: heightCm || 0,
+      diameterCm: input.diameterCm,
+      gapCm: input.gapMm !== undefined ? input.gapMm / 10 : 0.1,
+      overrideItemsPerSheet: input.labelsPerSheet > 0 ? input.labelsPerSheet : undefined,
+      forceLayoutType: input.layoutType as 'AUTO' | 'NORMAL',
+      edgePaddingCm: `${activeConfig.machineName || ''} ${activeConfig.machineCode || ''}`.toUpperCase().includes('GRAPHTEC') ? 0.5 : (`${activeConfig.machineName || ''} ${activeConfig.machineCode || ''}`.toUpperCase().includes('AVITECH') ? 0.1 : 0),
+      
+      vatBasisPoints: Math.round((input.vatRate || 0) * 100),
+      markupBasisPoints: Math.round((input.profitRate || 0) * 100),
+      
+      materialPricePerSheet: material ? material.basePrice : undefined as any,
+      printingPricePerSheet: input.printingPricePerSheet !== undefined && input.printingPricePerSheet !== null && input.printingPricePerSheet !== '' ? Number(input.printingPricePerSheet) : undefined as any,
+      laminationPricePerSheet: lamination ? lamination.pricePerSheet : undefined as any,
+      dieCutPricePerSheet,
+      fileProcessingFee,
+      shippingFee: input.shippingFee ? Number(input.shippingFee) : 0,
+
+      sheetWidthCm,
+      sheetHeightCm,
+      usableWidthCm,
+      usableHeightCm
+    };
+
+    // 6. Calculate (Core engine naturally omits properties for SALES role)
+    const result = calculateDigitalLabelQuote(engineInput);
+
+    return { success: true, data: result };
+  } catch (error: any) {
+    console.error('Lỗi tính giá digital label:', error);
     return { success: false, error: error.message || 'Có lỗi xảy ra khi tính giá' };
   }
 }

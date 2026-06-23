@@ -54,6 +54,18 @@ export async function getProductionJobs(filters?: any) {
       orderBy: { createdAt: 'desc' }
     });
 
+    const hideSensitiveRoles = ['SALES', 'PRODUCTION', 'DESIGNER', 'DELIVERY'];
+    if (hideSensitiveRoles.includes(auth.user?.role || '')) {
+      jobs.forEach(job => {
+        if (job.order) {
+          delete (job.order as any).managementMarginFlag;
+          delete (job.order as any).managementMarginNote;
+          delete (job.order as any).managementMarginReviewedAt;
+          delete (job.order as any).managementMarginReviewedById;
+        }
+      });
+    }
+
     return { success: true, data: jobs };
   } catch (error: any) {
     return { success: false, error: error.message };
@@ -97,6 +109,14 @@ export async function getProductionJobById(id: string) {
       });
       job.qrToken = randomToken;
       job.qrIssuedAt = new Date();
+    }
+
+    const hideSensitiveRoles = ['SALES', 'PRODUCTION', 'DESIGNER', 'DELIVERY'];
+    if (hideSensitiveRoles.includes(auth.user?.role || '') && job.order) {
+      delete (job.order as any).managementMarginFlag;
+      delete (job.order as any).managementMarginNote;
+      delete (job.order as any).managementMarginReviewedAt;
+      delete (job.order as any).managementMarginReviewedById;
     }
 
     return { success: true, data: job };

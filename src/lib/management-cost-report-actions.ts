@@ -2,6 +2,7 @@
 
 import { db } from './db';
 import { getCurrentUser } from './auth';
+import { safeRevalidatePath } from './safe-revalidate';
 
 export type ReportPeriodType = "WEEK" | "MONTH" | "QUARTER" | "YEAR" | "CUSTOM";
 
@@ -35,6 +36,13 @@ export type ManagementCostReportRow = {
     hasCancelledCostLines: boolean;
     missingCostData: boolean;
   };
+
+  // 22A.16 Export fields
+  orderDate: string;
+  managementMarginFlag: boolean;
+  managementMarginNote: string | null;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
 };
 
 export type ManagementCostReportResponse = {
@@ -181,6 +189,9 @@ export async function getManagementCostReport(
     where: orderWhere,
     include: {
       customer: true,
+      managementMarginReviewedBy: {
+        select: { name: true }
+      },
       productionJob: {
         include: {
           costLines: true, // fetch all to separate active/cancelled
@@ -308,7 +319,12 @@ export async function getManagementCostReport(
         highProductionCost,
         hasCancelledCostLines,
         missingCostData
-      }
+      },
+      orderDate: order.createdAt.toISOString(),
+      managementMarginFlag: order.managementMarginFlag || false,
+      managementMarginNote: order.managementMarginNote || null,
+      reviewedBy: order.managementMarginReviewedBy?.name || null,
+      reviewedAt: order.managementMarginReviewedAt ? order.managementMarginReviewedAt.toISOString() : null
     });
   }
 
@@ -326,5 +342,256 @@ export async function getManagementCostReport(
     },
     summary,
     rows
+  };
+}
+
+export async function getManagementCostDrilldown(orderId: string) {
+  const user = await getCurrentUser();
+  if (!user || !checkCostPermission(user.role)) {
+    return { success: false, error: 'PERMISSION_DENIED' };
+  }
+
+  const order = await db.order.findUnique({
+    where: { id: orderId },
+    include: {
+      customer: true,
+      items: true,
+      productionJob: {
+        include: {
+          costLines: true
+        }
+      },
+      managementMarginReviewedBy: {
+        select: { name: true }
+      }
+    }
+  });
+
+  if (!order) return { success: false, error: 'Order not found' };
+
+  let actualMaterialCost = 0;
+  let actualAdditionalCost = 0;
+  
+  if (order.productionJob) {
+    // Fetch COMPLETED PXKs separately because there is no Prisma back-relation from ProductionJob to InventoryOutboundReceipt
+    const pxks = await db.inventoryOutboundReceipt.findMany({
+      where: {
+        productionJobId: order.productionJob.id,
+        outboundType: 'PRODUCTION_ISSUE',
+        status: 'COMPLETED'
+      },
+      include: {
+        items: {
+          include: {
+            inventoryItem: true
+          }
+        }
+      }
+    });
+
+    (order.productionJob as any).inventoryOutboundReceipts = pxks;
+
+    // Material cost strictly from COMPLETED PXK snapshot
+    for (const pxk of pxks) {
+      for (const item of pxk.items) {
+        actualMaterialCost += (item.totalCost || 0);
+      }
+    }
+
+    // Additional cost strictly from ACTIVE CostLines
+    for (const costLine of order.productionJob.costLines) {
+      if (costLine.status === 'ACTIVE') {
+        actualAdditionalCost += costLine.totalCost;
+      }
+    }
+  }
+
+  const actualProductionCost = actualMaterialCost + actualAdditionalCost;
+  const revenue = order.totalAmount || 0;
+  const grossProfit = revenue - actualProductionCost;
+  const grossMarginPercent = revenue > 0 ? (grossProfit / revenue) * 100 : 0;
+
+  return {
+    success: true,
+    data: {
+      order,
+      revenue,
+      actualMaterialCost,
+      actualAdditionalCost,
+      actualProductionCost,
+      grossProfit,
+      grossMarginPercent
+    }
+  };
+}
+
+export async function updateManagementMarginReview(orderId: string, flag: boolean, note: string) {
+  const user = await getCurrentUser();
+  if (!user || !checkCostPermission(user.role)) {
+    return { success: false, error: 'PERMISSION_DENIED' };
+  }
+
+  if (!orderId) return { success: false, error: 'Thiếu mã đơn hàng' };
+  if (typeof flag !== 'boolean') return { success: false, error: 'Dữ liệu cờ không hợp lệ' };
+  
+  const safeNote = (note || '').trim().substring(0, 2000);
+
+  try {
+    await db.order.update({
+      where: { id: orderId },
+      data: {
+        managementMarginFlag: flag,
+        managementMarginNote: safeNote,
+        managementMarginReviewedAt: new Date(),
+        managementMarginReviewedById: user.id
+      }
+    });
+
+    safeRevalidatePath('/dashboard/reports/management-costing');
+    safeRevalidatePath(`/dashboard/orders/${orderId}`);
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Lỗi cập nhật ghi chú margin' };
+  }
+}
+
+export type ExportCostReportFilter = ManagementCostReportFilter & {
+  includeDrilldown?: boolean;
+};
+
+export type ExportDrilldownRow = {
+  orderId: string;
+  orderCode: string;
+  type: 'MATERIAL_ISSUE' | 'ADDITIONAL_COST' | 'CANCELLED_ADDITIONAL_COST_AUDIT';
+  description: string;
+  quantity: number;
+  unitCost?: number;
+  totalCost: number;
+  note?: string;
+  date?: string;
+};
+
+export type ManagementCostExportResponse = {
+  success: true;
+  summary: ManagementCostReportResponse['summary'];
+  orders: ManagementCostReportRow[];
+  drilldowns?: ExportDrilldownRow[];
+} | {
+  success: false;
+  error: string;
+};
+
+export async function exportManagementCostReport(filters: ExportCostReportFilter): Promise<ManagementCostExportResponse> {
+  const user = await getCurrentUser();
+  if (!user || !checkCostPermission(user.role)) {
+    return { success: false, error: 'PERMISSION_DENIED' };
+  }
+
+  // 1. Re-use getManagementCostReport for standard filtering and logic
+  const reportRes = await getManagementCostReport(filters);
+  if (!reportRes.success) {
+    return { success: false, error: reportRes.error };
+  }
+
+  const { summary, rows: orders } = reportRes;
+
+  // Enforce Payload limits
+  const isTooLargeForSummary = orders.length > 2000;
+  const isTooLargeForDrilldown = filters.includeDrilldown && orders.length > 300;
+
+  if (isTooLargeForSummary || isTooLargeForDrilldown) {
+    return { success: false, error: 'EXPORT_TOO_LARGE' };
+  }
+
+  // 2. Fetch drilldown details if requested
+  let drilldowns: ExportDrilldownRow[] | undefined = undefined;
+
+  if (filters.includeDrilldown && orders.length > 0) {
+    drilldowns = [];
+    const orderIds = orders.map(o => o.orderId);
+    
+    // To be efficient and exact, we re-query what getManagementCostDrilldown queries but in bulk
+    const drilldownOrders = await db.order.findMany({
+      where: { id: { in: orderIds } },
+      include: {
+        productionJob: {
+          include: {
+            costLines: true
+          }
+        }
+      }
+    });
+
+    const jobIds = drilldownOrders.filter(o => o.productionJob).map(o => o.productionJob!.id);
+    
+    // Fetch COMPLETED PXKs for these jobs
+    const pxks = await db.inventoryOutboundReceipt.findMany({
+      where: {
+        productionJobId: { in: jobIds },
+        outboundType: 'PRODUCTION_ISSUE',
+        status: 'COMPLETED'
+      },
+      include: {
+        items: true
+      }
+    });
+
+    const pxksByJobId: Record<string, typeof pxks> = {};
+    for (const pxk of pxks) {
+      if (pxk.productionJobId) {
+        if (!pxksByJobId[pxk.productionJobId]) pxksByJobId[pxk.productionJobId] = [];
+        pxksByJobId[pxk.productionJobId].push(pxk);
+      }
+    }
+
+    for (const dOrder of drilldownOrders) {
+      const orderCode = dOrder.orderCode;
+      
+      if (dOrder.productionJob) {
+        const jobPxks = pxksByJobId[dOrder.productionJob.id] || [];
+        
+        // Material details
+        for (const pxk of jobPxks) {
+          for (const item of pxk.items) {
+            drilldowns.push({
+              orderId: dOrder.id,
+              orderCode,
+              type: 'MATERIAL_ISSUE',
+              description: `Vật tư: ${item.itemCode} - ${item.itemName}`,
+              quantity: item.quantityBase,
+              unitCost: item.unitCost || 0,
+              totalCost: item.totalCost || 0,
+              note: `PXK: ${pxk.receiptCode}` + (item.note ? ` (${item.note})` : ''),
+              date: pxk.issuedAt.toISOString()
+            });
+          }
+        }
+
+        // Additional cost details
+        for (const costLine of dOrder.productionJob.costLines) {
+          const type = costLine.status === 'ACTIVE' ? 'ADDITIONAL_COST' : 'CANCELLED_ADDITIONAL_COST_AUDIT';
+          drilldowns.push({
+            orderId: dOrder.id,
+            orderCode,
+            type,
+            description: `Phụ phí: ${costLine.description} [${costLine.category}]`,
+            quantity: costLine.quantity,
+            unitCost: costLine.unitCost,
+            totalCost: costLine.totalCost,
+            note: costLine.status === 'CANCELLED' ? `Đã hủy bởi ${costLine.cancelReason || 'Unknown'}` : (costLine.note || ''),
+            date: costLine.createdAt.toISOString()
+          });
+        }
+      }
+    }
+  }
+
+  // Double check sanitize
+  // Ensure we don't return anything else
+  return {
+    success: true,
+    summary,
+    orders,
+    ...(filters.includeDrilldown ? { drilldowns } : {})
   };
 }

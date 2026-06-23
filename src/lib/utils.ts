@@ -135,3 +135,90 @@ export function getPaymentStatusBadge(status: string): { label: string; bg: stri
 export function getDeliveryCodAmount(order: any) {
   return Math.max(0, order?.debtAmount || 0);
 }
+
+export function stripLeadingZeros(value: string): string {
+  if (!value) return '';
+  if (value.includes('.')) {
+    const parts = value.split('.');
+    let integerPart = parts[0].replace(/^0+/, '');
+    if (integerPart === '') integerPart = '0';
+    const decimals = parts.slice(1).join('.');
+    return integerPart + '.' + decimals;
+  }
+  const stripped = value.replace(/^0+/, '');
+  if (stripped === '' && value.length > 0) return '0';
+  return stripped;
+}
+
+export function sanitizeIntegerInput(value: string): string {
+  if (!value) return '';
+  
+  // Chỉ giữ lại chữ số và dấu chấm
+  let cleaned = value.replace(/[^0-9.]/g, '');
+  
+  const dotCount = (cleaned.match(/\./g) || []).length;
+  if (dotCount > 1) {
+    // Nhiều hơn 1 dấu chấm => phân cách hàng nghìn => loại bỏ
+    cleaned = cleaned.replace(/\./g, '');
+  } else if (dotCount === 1) {
+    const parts = cleaned.split('.');
+    const decimalPart = parts[1];
+    if (decimalPart.length === 3) {
+      // Đúng 3 chữ số ở phần thập phân => phân cách hàng nghìn => loại bỏ
+      cleaned = cleaned.replace(/\./g, '');
+    } else {
+      // Các trường hợp khác => dấu thập phân => cắt bỏ phần thập phân
+      cleaned = parts[0];
+    }
+  }
+
+  const onlyDigits = cleaned.replace(/\D/g, '');
+  if (!onlyDigits) return '';
+  const stripped = onlyDigits.replace(/^0+/, '');
+  if (!stripped && onlyDigits.length > 0) return '0';
+  return stripped;
+}
+
+export function formatVietnameseInteger(value: string | number): string {
+  const rawStr = typeof value === 'number' ? String(value) : value.toString();
+  const integerPart = rawStr.split('.')[0];
+  const numStr = integerPart.replace(/\D/g, '');
+  if (!numStr) return '';
+  const stripped = numStr.replace(/^0+/, '');
+  if (!stripped && numStr.length > 0) return '0';
+  return stripped.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
+export function parseVietnameseInteger(value: string): number {
+  const raw = value.replace(/\D/g, '');
+  const num = parseInt(raw, 10);
+  return isNaN(num) ? 0 : num;
+}
+
+export function sanitizePercentInput(value: string): string {
+  return sanitizeIntegerInput(value);
+}
+
+export function sanitizeMoneyInput(value: string): string {
+  return sanitizeIntegerInput(value);
+}
+
+export function sanitizeDecimalTechnicalInput(value: string): string {
+  let sanitized = value.replace(/[^0-9.]/g, '');
+  const parts = sanitized.split('.');
+  if (parts.length > 2) {
+    sanitized = parts[0] + '.' + parts.slice(1).join('');
+  }
+  if (sanitized.includes('.')) {
+    const dotIndex = sanitized.indexOf('.');
+    let integerPart = sanitized.slice(0, dotIndex).replace(/^0+/, '');
+    if (integerPart === '') integerPart = '0';
+    const decimalPart = sanitized.slice(dotIndex + 1);
+    return integerPart + '.' + decimalPart;
+  } else {
+    const stripped = sanitized.replace(/^0+/, '');
+    if (stripped === '' && sanitized.length > 0) return '0';
+    return stripped;
+  }
+}
+

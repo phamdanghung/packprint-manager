@@ -45,17 +45,20 @@ export async function calculateDecalQuoteFromDb(input: DecalQuoteRequest): Promi
 
   // 3. Lấy dữ liệu MachineConfig (nếu có truyền lên, không thì lấy mặc định)
   let machineConfig = undefined;
-  if (input.machineCode) {
-    const mc = await db.machineConfig.findUnique({
-      where: { machineCode: input.machineCode }
-    });
-    if (mc) machineConfig = mc;
-  }
-  if (!machineConfig) {
-    const defaultMc = await db.machineConfig.findFirst({
-      where: { status: 'ACTIVE' }
-    });
-    if (defaultMc) machineConfig = defaultMc;
+  const mcModel = (db as any).machineConfig;
+  if (mcModel) {
+    if (input.machineCode) {
+      const mc = await mcModel.findUnique({
+        where: { machineCode: input.machineCode }
+      });
+      if (mc) machineConfig = mc;
+    }
+    if (!machineConfig) {
+      const defaultMc = await mcModel.findFirst({
+        where: { status: 'ACTIVE' }
+      });
+      if (defaultMc) machineConfig = defaultMc;
+    }
   }
 
   // 4. Lấy DieCutPrices

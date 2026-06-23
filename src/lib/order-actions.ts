@@ -149,6 +149,8 @@ export async function getOrders(filters?: any) {
       orderBy: { createdAt: 'desc' }
     });
 
+    const hideSensitiveRoles = ['SALES', 'PRODUCTION', 'DESIGNER', 'DELIVERY'];
+
     if (auth.user!.role === 'SALES') {
       orders.forEach(order => {
         order.totalCost = 0;
@@ -162,6 +164,15 @@ export async function getOrders(filters?: any) {
           item.costAmount = 0;
           item.pricingDetails = null;
         });
+      });
+    }
+
+    if (hideSensitiveRoles.includes(auth.user!.role)) {
+      orders.forEach(order => {
+        delete (order as any).managementMarginFlag;
+        delete (order as any).managementMarginNote;
+        delete (order as any).managementMarginReviewedAt;
+        delete (order as any).managementMarginReviewedById;
       });
     }
 
@@ -189,6 +200,8 @@ export async function getOrderById(id: string) {
     });
     if (!order) return { success: false, error: 'Không tìm thấy đơn hàng' };
 
+    const hideSensitiveRoles = ['SALES', 'PRODUCTION', 'DESIGNER', 'DELIVERY'];
+
     if (auth.user!.role === 'SALES') {
       order.totalCost = 0;
       order.grossProfit = 0;
@@ -201,6 +214,13 @@ export async function getOrderById(id: string) {
         item.costAmount = 0;
         item.pricingDetails = null;
       });
+    }
+
+    if (hideSensitiveRoles.includes(auth.user!.role)) {
+      delete (order as any).managementMarginFlag;
+      delete (order as any).managementMarginNote;
+      delete (order as any).managementMarginReviewedAt;
+      delete (order as any).managementMarginReviewedById;
     }
 
     return { success: true, data: order };

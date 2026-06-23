@@ -4,6 +4,8 @@ import { db } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import Unauthorized from '@/components/unauthorized';
 
+import { getActiveDieCutMachineOptionsForQuote } from '@/lib/diecut-machine-actions';
+
 export default async function EditQuotePage({ params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!user || user.role === 'ACCOUNTANT') return <Unauthorized />;
@@ -21,7 +23,7 @@ export default async function EditQuotePage({ params }: { params: { id: string }
   const [customers, materials, machines, laminations] = await Promise.all([
     db.customer.findMany({ where: { status: 'ACTIVE' } }),
     db.material.findMany({ where: { status: 'ACTIVE' } }),
-    db.machineConfig.findMany({ where: { status: 'ACTIVE' } }),
+    getActiveDieCutMachineOptionsForQuote(),
     db.laminationPrice.findMany({ where: { status: 'ACTIVE' } })
   ]);
 

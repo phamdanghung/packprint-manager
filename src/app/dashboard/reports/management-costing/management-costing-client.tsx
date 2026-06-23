@@ -4,6 +4,9 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ManagementCostReportResponse, ReportPeriodType } from '@/lib/management-cost-report-actions';
 import { AlertCircle, Calendar, DollarSign, TrendingDown, Info, AlertTriangle } from 'lucide-react';
+import ManagementCostDrilldownPanel from './drilldown-panel';
+import ExportModal from './export-modal';
+import { Download } from 'lucide-react';
 
 export default function ManagementCostingClient({ 
   data, 
@@ -21,6 +24,9 @@ export default function ManagementCostingClient({
   const [period, setPeriod] = useState(initialPeriodType);
   const [fromDate, setFromDate] = useState(initialFromDate || '');
   const [toDate, setToDate] = useState(initialToDate || '');
+
+  const [drilldownOrderId, setDrilldownOrderId] = useState<string | null>(null);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
   const applyFilters = () => {
     const params = new URLSearchParams();
@@ -71,6 +77,14 @@ export default function ManagementCostingClient({
           className="bg-indigo-600 text-white px-4 py-2 rounded-md font-medium text-sm hover:bg-indigo-700 transition-colors"
         >
           Lọc dữ liệu
+        </button>
+
+        <button 
+          onClick={() => setIsExportModalOpen(true)}
+          className="bg-emerald-600 text-white px-4 py-2 rounded-md font-medium text-sm hover:bg-emerald-700 transition-colors flex items-center gap-2 ml-auto"
+        >
+          <Download className="w-4 h-4" />
+          Export Excel
         </button>
       </div>
 
@@ -163,7 +177,12 @@ export default function ManagementCostingClient({
               ) : rows.map(r => (
                 <tr key={r.orderId} className="hover:bg-slate-50 transition-colors">
                   <td className="p-4 font-medium text-slate-800">
-                    <a href={`/dashboard/orders/${r.orderId}`} className="text-indigo-600 hover:underline">{r.orderCode}</a>
+                    <button 
+                      onClick={() => setDrilldownOrderId(r.orderId)}
+                      className="text-indigo-600 hover:underline flex items-center gap-1"
+                    >
+                      {r.orderCode}
+                    </button>
                   </td>
                   <td className="p-4 text-slate-600">{r.customerName}</td>
                   <td className="p-4 text-right font-medium">{r.totalAmount.toLocaleString()} đ</td>
@@ -188,6 +207,21 @@ export default function ManagementCostingClient({
           </table>
         </div>
       </div>
+
+      <ManagementCostDrilldownPanel 
+        orderId={drilldownOrderId} 
+        isOpen={!!drilldownOrderId} 
+        onClose={() => setDrilldownOrderId(null)} 
+      />
+
+      <ExportModal 
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        periodType={period}
+        fromDate={fromDate}
+        toDate={toDate}
+        label={periodData.label}
+      />
     </div>
   );
 }

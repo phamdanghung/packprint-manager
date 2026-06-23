@@ -4,6 +4,8 @@ import { getCurrentUser } from '@/lib/auth';
 import Unauthorized from '@/components/unauthorized';
 import OrderCreateTabs from '@/components/orders/order-create-tabs';
 
+import { getActiveDieCutMachineOptionsForQuote } from '@/lib/diecut-machine-actions';
+
 export default async function NewOrderPage({ searchParams }: { searchParams: Promise<{ customerId?: string }> }) {
   const resolvedParams = await searchParams;
   const user = await getCurrentUser();
@@ -14,7 +16,7 @@ export default async function NewOrderPage({ searchParams }: { searchParams: Pro
   const [customers, materials, machines, laminations] = await Promise.all([
     db.customer.findMany({ where: { status: 'ACTIVE' } }),
     db.material.findMany({ where: { status: 'ACTIVE' } }),
-    db.machineConfig.findMany({ where: { status: 'ACTIVE' } }),
+    getActiveDieCutMachineOptionsForQuote(),
     db.laminationPrice.findMany({ where: { status: 'ACTIVE' } })
   ]);
 

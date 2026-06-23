@@ -225,6 +225,31 @@ async function runTests() {
     }
   });
 
+  // IN_PROGRESS PXK (should be ignored for cost)
+  await db.inventoryOutboundReceipt.create({
+    data: {
+      receiptCode: `PXK-${runId}-INPROG`,
+      productionJobId: job.id,
+      outboundType: 'PRODUCTION_ISSUE',
+      status: 'IN_PROGRESS',
+      items: {
+        create: [
+          {
+            inventoryItemId: item1.id,
+            itemCode: item1.itemCode,
+            itemName: item1.name,
+            stockBaseUnit: 'SHEET',
+            quantityBase: 50,
+            unitCost: 1000,
+            totalCost: 50000,
+            stockBeforeBase: 650,
+            stockAfterBase: 600
+          }
+        ]
+      }
+    }
+  });
+
   let passCount = 0;
   let totalTests = 0;
 
@@ -247,11 +272,14 @@ async function runTests() {
   
   // pxk1 = 100k + 100k = 200k
   // pxk2 = 200k
+  // pxk_inprog = 50k (SHOULD BE IGNORED)
   // total actual = 400k
-  assert(d.actualMaterialCost === 400000, `Actual Material Cost should be 400,000, got ${d.actualMaterialCost}`);
-  assert(d.issueSummary.completedOutboundReceipts === 2, 'Should count 2 completed receipts');
-  assert(d.issueSummary.cancelledOutboundReceipts === 1, 'Should count 1 cancelled receipt');
-  assert(d.materialCostLines.length === 3, 'Should have 3 item cost rows');
+  assert(d.actualMaterialCost === 400000, `Actual Material Cost strictly only includes COMPLETED PXK, got ${d.actualMaterialCost}`);
+  assert(d.issueSummary.completedOutboundReceipts === 2, 'Should count 2 COMPLETED receipts');
+  assert(d.issueSummary.cancelledOutboundReceipts === 1, 'Should count 1 CANCELLED receipt');
+  // IN_PROGRESS PXK is safely ignored from materialCostLines
+  assert(d.materialCostLines.length === 3, 'Should have 3 item cost rows (IN_PROGRESS and CANCELLED items are completely ignored)');
+
 
   // TEST 2: ORDER PROFITABILITY (ADMIN)
   const orderProfitAdmin = await getOrderProfitability(order.id);
