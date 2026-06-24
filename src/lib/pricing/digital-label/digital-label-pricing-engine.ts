@@ -76,7 +76,7 @@ export function calculateDigitalLabelQuote(input: DigitalLabelInput): PricingRes
 
   // Apply FREE_SHIPPING_INNER_CITY rule if exists
   const freeShippingRule = input.activeRules?.find((r: any) => r.ruleCode === 'FREE_SHIPPING_INNER_CITY');
-  if (freeShippingRule && finalShippingFee > 0) {
+  if (freeShippingRule) {
     const config = typeof freeShippingRule.config === 'string' 
       ? JSON.parse(freeShippingRule.config) 
       : (freeShippingRule.config || {});
@@ -87,10 +87,12 @@ export function calculateDigitalLabelQuote(input: DigitalLabelInput): PricingRes
     const totalWithoutShipping = totalAmount - finalShippingFee - applyBasisPoints(finalShippingFee, input.vatBasisPoints);
     
     if (totalWithoutShipping >= threshold) {
-      finalShippingFee = 0;
-      taxableAmount = sellingPrice + finalShippingFee;
-      vatAmount = applyBasisPoints(taxableAmount, input.vatBasisPoints);
-      totalAmount = taxableAmount + vatAmount;
+      if (finalShippingFee > 0) {
+        finalShippingFee = 0;
+        taxableAmount = sellingPrice + finalShippingFee;
+        vatAmount = applyBasisPoints(taxableAmount, input.vatBasisPoints);
+        totalAmount = taxableAmount + vatAmount;
+      }
       
       const thresholdFormatted = new Intl.NumberFormat('vi-VN').format(threshold);
       notes.push(`Đã miễn phí giao hàng do tổng tiền (sau VAT) >= ${thresholdFormatted}đ`);
@@ -135,7 +137,8 @@ export function calculateDigitalLabelQuote(input: DigitalLabelInput): PricingRes
       usableHeightCm: input.usableHeightCm
     },
     safeWarnings: warnings,
-    notes: notes
+    notes: notes,
+    shippingFee: finalShippingFee
   };
 
   // 8. RBAC Filter

@@ -23,7 +23,8 @@ export function filterPricingResponseByRole(fullResponse: FullPricingResponse, r
       usableHeightCm: fullResponse.internalBreakdown?.usableHeightCm
     },
     safeWarnings: fullResponse.safeWarnings,
-    notes: fullResponse.notes
+    notes: fullResponse.notes,
+    shippingFee: fullResponse.shippingFee
   };
 
   return salesResponse;

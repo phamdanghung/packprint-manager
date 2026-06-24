@@ -1079,7 +1079,7 @@ export default function QuoteForm({ customers, materials, machines, laminations,
                 </div>
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-slate-500">Phí vận chuyển:</span> 
-                  <span className="font-medium text-slate-700">{formatCurrencyVND(Number(shippingFee) || 0)}</span>
+                  <span className="font-medium text-slate-700">{formatCurrencyVND(previewData.shippingFee ?? Number(shippingFee) ?? 0)}</span>
                 </div>
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-slate-500">VAT ({vatRate}%):</span> 
