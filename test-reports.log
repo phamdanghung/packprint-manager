@@ -1,0 +1,43 @@
+SQLite database found during compile, size: 4947968
+--- STARTING PHASE 22A.14 MANAGEMENT COST REPORT TESTS ---
+✓ Test Data Setup Completed
+
+--- RBAC TESTS ---
+  ✅ PASS: ADMIN can fetch cost report
+  ✅ PASS: MANAGER can fetch cost report
+  ✅ PASS: ACCOUNTANT can fetch cost report
+  ✅ PASS: SALES gets PERMISSION_DENIED
+  ✅ PASS: PRODUCTION gets PERMISSION_DENIED
+  ✅ PASS: DESIGNER gets PERMISSION_DENIED
+  ✅ PASS: DELIVERY gets PERMISSION_DENIED
+
+--- PERIOD TESTS ---
+  ✅ PASS: CUSTOM period correctly fetches past order
+  ✅ PASS: CUSTOM period correctly excludes current order
+  ✅ PASS: Default current month behavior works when no filter is provided
+  ✅ PASS: WEEK period correctly fetches matching order
+  ✅ PASS: WEEK period correctly excludes order outside week
+  ✅ PASS: MONTH period correctly fetches current month order
+  ✅ PASS: QUARTER period correctly fetches matching order
+  ✅ PASS: QUARTER period correctly excludes order outside quarter
+  ✅ PASS: YEAR period correctly fetches current year order
+
+--- COST & WARNING RULES ---
+  ✅ PASS: Normal order found in current month report
+  ✅ PASS: Revenue uses totalAmount exactly
+  ✅ PASS: Material Cost from completed PXK only
+  ✅ PASS: Additional Cost from active CostLines only
+  ✅ PASS: Gross profit calculates correctly
+  ✅ PASS: Zero order revenue is 0
+  ✅ PASS: Zero order grossMarginPercent is safely 0 (Not NaN)
+  ✅ PASS: Zero order missing Cost Data warning triggered
+  ✅ PASS: Cancelled cost line NOT added to actualAdditionalCost
+  ✅ PASS: Cancelled cost line flag is TRUE
+  ✅ PASS: Low Margin flag is TRUE (<20%)
+  ✅ PASS: High Production Cost flag is TRUE (>80%)
+
+--- SAFE CLEANUP ---
+
+Cleanup successfully removed explicit generated IDs.
+
+🎉 ALL TESTS PASSED (28/28)

@@ -1,0 +1,58 @@
+SQLite database found during compile, size: 4947968
+--- STARTING PRODUCTION COSTING & PROFITABILITY TESTS ---
+✅ PASS: getProductionJobCosting successful for ADMIN
+✅ PASS: ADMIN canViewCost = true
+✅ PASS: Actual Material Cost should be 400,000, got 400000
+✅ PASS: Should count 2 completed receipts
+✅ PASS: Should count 1 cancelled receipt
+✅ PASS: Should have 3 item cost rows
+✅ PASS: getOrderProfitability successful for ADMIN
+✅ PASS: ADMIN canViewCost = true
+✅ PASS: Revenue should equal totalAmount (5,400,000)
+✅ PASS: Order total actual material cost should be 400,000
+✅ PASS: Gross profit should be 5,000,000
+✅ PASS: Gross margin percent is calculated correctly
+✅ PASS: ACCOUNTANT canViewCost = true
+✅ PASS: SALES canViewCost = false
+✅ PASS: SALES cannot see actualMaterialCost
+✅ PASS: SALES cannot see actualAdditionalCost
+✅ PASS: SALES cannot see actualProductionCost
+✅ PASS: SALES itemCost rows have undefined totalCost
+✅ PASS: SALES itemCost rows have undefined unitCost
+✅ PASS: SALES order profit canViewCost = false
+✅ PASS: SALES cannot see profit
+✅ PASS: SALES cannot see costs on order
+✅ PASS: SALES productionJobs list has undefined cost
+✅ PASS: PRODUCTION canViewCost = false
+✅ PASS: PRODUCTION cannot see actualMaterialCost
+✅ PASS: PRODUCTION cannot see actualAdditionalCost
+✅ PASS: PRODUCTION cannot see actualProductionCost
+✅ PASS: PRODUCTION itemCost rows have undefined totalCost
+✅ PASS: PRODUCTION itemCost rows have undefined unitCost
+✅ PASS: PRODUCTION order profit canViewCost = false
+✅ PASS: PRODUCTION cannot see profit
+✅ PASS: PRODUCTION cannot see costs on order
+✅ PASS: PRODUCTION productionJobs list has undefined cost
+✅ PASS: DESIGNER canViewCost = false
+✅ PASS: DESIGNER cannot see actualMaterialCost
+✅ PASS: DESIGNER cannot see actualAdditionalCost
+✅ PASS: DESIGNER cannot see actualProductionCost
+✅ PASS: DESIGNER itemCost rows have undefined totalCost
+✅ PASS: DESIGNER itemCost rows have undefined unitCost
+✅ PASS: DESIGNER order profit canViewCost = false
+✅ PASS: DESIGNER cannot see profit
+✅ PASS: DESIGNER cannot see costs on order
+✅ PASS: DESIGNER productionJobs list has undefined cost
+✅ PASS: DELIVERY canViewCost = false
+✅ PASS: DELIVERY cannot see actualMaterialCost
+✅ PASS: DELIVERY cannot see actualAdditionalCost
+✅ PASS: DELIVERY cannot see actualProductionCost
+✅ PASS: DELIVERY itemCost rows have undefined totalCost
+✅ PASS: DELIVERY itemCost rows have undefined unitCost
+✅ PASS: DELIVERY order profit canViewCost = false
+✅ PASS: DELIVERY cannot see profit
+✅ PASS: DELIVERY cannot see costs on order
+✅ PASS: DELIVERY productionJobs list has undefined cost
+✅ PASS: Empty order has 0 revenue
+✅ PASS: Gross margin percent is undefined when revenue <= 0
+--- TEST RESULTS: 55 / 55 PASSED ---

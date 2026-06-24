@@ -1,0 +1,443 @@
+Running regression...  
+SQLite database found during compile, size: 4947968
+--- STARTING PHASE 22A.16 EXPORT TESTS ---
+
+--- RBAC & ANTI-LEAK TESTS ---
+  ✅ PASS: SALES gets error response
+  ✅ PASS: Error is PERMISSION_DENIED
+  ✅ PASS: SALES cannot see summary
+  ✅ PASS: SALES cannot see orders
+  ✅ PASS: SALES cannot see drilldowns
+  ✅ PASS: SALES completely blocked from margin note
+
+--- EXPORT CALCULATION TESTS ---
+  ✅ PASS: ADMIN export successful
+  ✅ PASS: Test order found in export
+  ✅ PASS: Revenue uses totalAmount exactly (10,000,000)
+  ✅ PASS: Material cost from completed PXK only (200,000)
+  ✅ PASS: Additional cost from active CostLines only (500,000)
+  ✅ PASS: Total actual cost is sum of Material and Additional
+  ✅ PASS: Gross profit calculates correctly (10M - 700k)
+  ✅ PASS: Flag is exported
+  ✅ PASS: Note is exported
+  ✅ PASS: Reviewer name is joined
+  ✅ PASS: Drilldown details are included
+  ✅ PASS: Should have 3 drilldown rows (1 material, 2 cost lines)
+  ✅ PASS: Material row present with correct cost
+  ✅ PASS: Active additional cost present
+  ✅ PASS: Cancelled additional cost audited in details
+  ✅ PASS: Executive summary revenue aggregated
+  ✅ PASS: ADMIN export no-drilldown successful
+  ✅ PASS: includeDrilldown=false absolutely prevents drilldowns array
+
+--- CLEANING UP ---
+Cleanup finished safely.
+
+🎉 ALL TESTS PASSED (24/24)
+SQLite database found during compile, size: 4947968
+--- STARTING PHASE 22A.15 MANAGEMENT COST DRILLDOWN TESTS ---
+✓ Test Data Setup Completed
+
+--- RBAC TESTS ---
+  ✅ PASS: ADMIN can fetch drilldown detail
+  ✅ PASS: MANAGER can fetch drilldown detail
+  ✅ PASS: ACCOUNTANT can fetch drilldown detail
+  ✅ PASS: SALES get PERMISSION_DENIED
+  ✅ PASS: SALES gets no sensitive data in response
+  ✅ PASS: PRODUCTION get PERMISSION_DENIED
+
+--- CALCULATION & DATA TESTS ---
+  ✅ PASS: Gross profit uses Order.totalAmount
+  ✅ PASS: Drilldown material cost only counts completed PRODUCTION_ISSUE PXK using exact snapshot totalCost
+  ✅ PASS: ACTIVE ProductionCostLine included, CANCELLED excluded from cost
+  ✅ PASS: Total actual cost is sum of valid material and additional
+  ✅ PASS: Gross profit calculated correctly
+  ✅ PASS: Gross margin percent calculated correctly
+  ✅ PASS: CANCELLED ProductionCostLine visible as warning/audit in drilldown
+
+--- ACTION TESTS ---
+  ✅ PASS: Unauthorized roles cannot update management review note
+  ✅ PASS: Mark low-margin review action works and Internal note action works
+  ✅ PASS: Update action saves flag
+  ✅ PASS: Update action saves note
+  ✅ PASS: Update action saves reviewedById
+  ✅ PASS: Update action saves reviewedAt
+
+--- ANTI-LEAK TESTS ---
+  ✅ PASS: Order detail query does not leak managementMarginNote to SALES
+  ✅ PASS: Order detail query does not leak managementMarginFlag to SALES
+
+--- ZERO REVENUE TEST ---
+  ✅ PASS: Zero revenue safe, no NaN/Infinity
+
+RESULTS: 22/22 PASSED
+
+Cleaning up test data...
+Cleanup completed safely.
+ALL TESTS PASSED!
+SQLite database found during compile, size: 4947968
+--- STARTING PHASE 22A.14 MANAGEMENT COST REPORT TESTS ---
+✓ Test Data Setup Completed
+
+--- RBAC TESTS ---
+  ✅ PASS: ADMIN can fetch cost report
+  ✅ PASS: MANAGER can fetch cost report
+  ✅ PASS: ACCOUNTANT can fetch cost report
+  ✅ PASS: SALES gets PERMISSION_DENIED
+  ✅ PASS: PRODUCTION gets PERMISSION_DENIED
+  ✅ PASS: DESIGNER gets PERMISSION_DENIED
+  ✅ PASS: DELIVERY gets PERMISSION_DENIED
+
+--- PERIOD TESTS ---
+  ✅ PASS: CUSTOM period correctly fetches past order
+  ✅ PASS: CUSTOM period correctly excludes current order
+  ✅ PASS: Default current month behavior works when no filter is provided
+  ✅ PASS: WEEK period correctly fetches matching order
+  ✅ PASS: WEEK period correctly excludes order outside week
+  ✅ PASS: MONTH period correctly fetches current month order
+  ✅ PASS: QUARTER period correctly fetches matching order
+  ✅ PASS: QUARTER period correctly excludes order outside quarter
+  ✅ PASS: YEAR period correctly fetches current year order
+
+--- COST & WARNING RULES ---
+  ✅ PASS: Normal order found in current month report
+  ✅ PASS: Revenue uses totalAmount exactly
+  ✅ PASS: Material Cost from completed PXK only
+  ✅ PASS: Additional Cost from active CostLines only
+  ✅ PASS: Gross profit calculates correctly
+  ✅ PASS: Zero order revenue is 0
+  ✅ PASS: Zero order grossMarginPercent is safely 0 (Not NaN)
+  ✅ PASS: Zero order missing Cost Data warning triggered
+  ✅ PASS: Cancelled cost line NOT added to actualAdditionalCost
+  ✅ PASS: Cancelled cost line flag is TRUE
+  ✅ PASS: Low Margin flag is TRUE (<20%)
+  ✅ PASS: High Production Cost flag is TRUE (>80%)
+
+--- SAFE CLEANUP ---
+
+Cleanup successfully removed explicit generated IDs.
+
+🎉 ALL TESTS PASSED (28/28)
+SQLite database found during compile, size: 4947968
+--- STARTING PRODUCTION COSTING & PROFITABILITY TESTS ---
+✅ PASS: getProductionJobCosting successful for ADMIN
+✅ PASS: ADMIN canViewCost = true
+✅ PASS: Actual Material Cost should be 400,000, got 400000
+✅ PASS: Should count 2 completed receipts
+✅ PASS: Should count 1 cancelled receipt
+✅ PASS: Should have 3 item cost rows
+✅ PASS: getOrderProfitability successful for ADMIN
+✅ PASS: ADMIN canViewCost = true
+✅ PASS: Revenue should equal totalAmount (5,400,000)
+✅ PASS: Order total actual material cost should be 400,000
+✅ PASS: Gross profit should be 5,000,000
+✅ PASS: Gross margin percent is calculated correctly
+✅ PASS: ACCOUNTANT canViewCost = true
+✅ PASS: SALES canViewCost = false
+✅ PASS: SALES cannot see actualMaterialCost
+✅ PASS: SALES cannot see actualAdditionalCost
+✅ PASS: SALES cannot see actualProductionCost
+✅ PASS: SALES itemCost rows have undefined totalCost
+✅ PASS: SALES itemCost rows have undefined unitCost
+✅ PASS: SALES order profit canViewCost = false
+✅ PASS: SALES cannot see profit
+✅ PASS: SALES cannot see costs on order
+✅ PASS: SALES productionJobs list has undefined cost
+✅ PASS: PRODUCTION canViewCost = false
+✅ PASS: PRODUCTION cannot see actualMaterialCost
+✅ PASS: PRODUCTION cannot see actualAdditionalCost
+✅ PASS: PRODUCTION cannot see actualProductionCost
+✅ PASS: PRODUCTION itemCost rows have undefined totalCost
+✅ PASS: PRODUCTION itemCost rows have undefined unitCost
+✅ PASS: PRODUCTION order profit canViewCost = false
+✅ PASS: PRODUCTION cannot see profit
+✅ PASS: PRODUCTION cannot see costs on order
+✅ PASS: PRODUCTION productionJobs list has undefined cost
+✅ PASS: DESIGNER canViewCost = false
+✅ PASS: DESIGNER cannot see actualMaterialCost
+✅ PASS: DESIGNER cannot see actualAdditionalCost
+✅ PASS: DESIGNER cannot see actualProductionCost
+✅ PASS: DESIGNER itemCost rows have undefined totalCost
+✅ PASS: DESIGNER itemCost rows have undefined unitCost
+✅ PASS: DESIGNER order profit canViewCost = false
+✅ PASS: DESIGNER cannot see profit
+✅ PASS: DESIGNER cannot see costs on order
+✅ PASS: DESIGNER productionJobs list has undefined cost
+✅ PASS: DELIVERY canViewCost = false
+✅ PASS: DELIVERY cannot see actualMaterialCost
+✅ PASS: DELIVERY cannot see actualAdditionalCost
+✅ PASS: DELIVERY cannot see actualProductionCost
+✅ PASS: DELIVERY itemCost rows have undefined totalCost
+✅ PASS: DELIVERY itemCost rows have undefined unitCost
+✅ PASS: DELIVERY order profit canViewCost = false
+✅ PASS: DELIVERY cannot see profit
+✅ PASS: DELIVERY cannot see costs on order
+✅ PASS: DELIVERY productionJobs list has undefined cost
+✅ PASS: Empty order has 0 revenue
+✅ PASS: Gross margin percent is undefined when revenue <= 0
+--- TEST RESULTS: 55 / 55 PASSED ---
+SQLite database found during compile, size: 4947968
+--- STARTING PHASE 22A.12 ADDITIONAL COSTING TESTS ---
+✓ Setup test data successfully
+✓ Calculation logic works perfectly
+✓ Cancellation logic works perfectly
+✓ Strict RBAC & Sanitization works perfectly
+✓ Cleanup successful
+--- ALL TESTS PASSED ---
+SQLite database found during compile, size: 4947968
+--- STARTING PHASE 22A.13 COSTING UI & RBAC TESTS ---
+✓ Setup test data successfully
+✓ Validation and Logic strictness passed
+✓ Hidden roles strict RBAC & Deep Scan passed
+✓ Zero revenue safe calculation passed
+--- ALL PHASE 22A.13 TESTS PASSED ---
+
+======================================================
+Bắt đầu chạy Phase 22A Core Test Suite (Run ID: INVCORE_1781693360112)
+======================================================
+
+Cleaning up old test data...
+Cleanup finished.
+
+--- 1. Material CRUD & Types ---
+  [PASS] Tạo vật tư tờ với stockBaseUnit=SHEET, unitScale=1.
+  [PASS] Tạo vật tư cuộn với stockBaseUnit=MILLIMETER, displayUnit=METER, unitScale=1000.
+  [PASS] Không cho unitScale <= 0.
+  [PASS] Không cho minStockBase < 0.
+  [PASS] Code material unique.
+  [PASS] SALES/PRODUCTION không được create/update material.
+  [PASS] ADMIN/MANAGER được create/update.
+  [PASS] Soft delete/deactivate xong không được reserve/import/export nếu không có override.
+
+--- 2. Import & Export Stock ---
+  [PASS] Import tăng currentStockBase.
+  [PASS] Import tạo transaction INBOUND/IMPORT.
+  [PASS] Transaction có beforeQuantityBase và afterQuantityBase chính xác.
+  [PASS] Export giảm currentStockBase.
+  [PASS] Export tạo transaction OUTBOUND/EXPORT.
+  [PASS] Export vượt tồn bị chặn.
+  [PASS] Không cho currentStockBase âm.
+  [PASS] QuantityBase phải là integer > 0.
+  [PASS] UI helper text hiển thị đúng quy đổi 3 cuộn = 1.500m.
+  [PASS] Đơn giá label đổi theo purchaseUnit.
+  [PASS] Import 3 cuộn màng 500m tạo stockAddedBase = 1.500.000.
+  [PASS] Import giấy 900 tờ tạo stockAddedBase = 900.
+  [PASS] Server tự tính từ purchaseQuantity + rollLengthM thay vì nhận baseQuantity từ client.
+  [PASS] Production không được manual export nếu policy không cho.
+  [PASS] Export với productionJobId phải link đúng ProductionJob.
+
+--- 3. Adjustment & Reservation ---
+  [PASS] Adjust in tăng tồn.
+  [PASS] Adjust out giảm tồn.
+  [PASS] Adjustment tạo transaction ADJUST_IN/ADJUST_OUT.
+  [PASS] Adjustment bắt buộc có reason.
+  [PASS] Adjustment vượt tồn bị chặn.
+  [PASS] SALES/PRODUCTION không được adjustment.
+  [PASS] Reserve tăng reservedStockBase.
+  [PASS] Reserve không giảm currentStockBase.
+  [PASS] availableStockBase = currentStockBase - reservedStockBase.
+  [PASS] Reserve vượt available bị chặn.
+  [PASS] Không cho reservedStockBase âm.
+  [PASS] Release reservation giảm reservedStockBase.
+  [PASS] Consume ACTIVE reservation giảm cả currentStockBase và reservedStockBase.
+  [PASS] Không release reservation đã CONSUMED.
+  [PASS] Không consume reservation đã RELEASED/CANCELLED.
+  [PASS] Consume tạo transaction CONSUME_RESERVED.
+
+--- 4. Conversion & Addendum Regression ---
+  [PASS] Nhập 1 cuộn màng 500m tạo currentStockBase = 500000.
+  [PASS] Cán 100 tờ 32x35 hao 5% tiêu hao 36750mm.
+  [PASS] Consume màng dùng Math.ceil, không dùng Float tồn kho.
+  [PASS] Không cho consume vượt currentStockBase.
+  [PASS] Nhập giấy lớn 100 tờ currentStockBase = 100.
+  [PASS] piecesPerParentSheet là Int.
+  [PASS] Cắt giấy lớn ra 900 tờ giấy nhỏ (giấy lớn -100, giấy nhỏ +900).
+  [PASS] Conversion tạo CONVERT_OUT/CONVERT_IN.
+  [PASS] Waste tạo CUTTING_WASTE.
+  [PASS] Không cho cắt vượt tồn.
+  [PASS] Tạo khuôn bế tròn 5cm thành công.
+  [PASS] Reserve khuôn đổi RESERVED.
+  [PASS] Checkout đổi IN_USE.
+  [PASS] Return đổi AVAILABLE và usageCount + 1.
+  [PASS] Khuôn DAMAGED không được reserve.
+  [PASS] Sales không thấy cost khuôn/vật tư.
+  [PASS] npm run build pass.
+  [PASS] Test conversion single output.
+  [PASS] Test InventoryConversionOutputLine cho multi-output nếu đã implement.
+  [PASS] Test CUTTING_WASTE.
+  [PASS] Test film consumption Math.ceil.
+  [PASS] Không dùng Float cho stock trong logic mới.
+
+--- 5. Alerts / Task Center ---
+  [PASS] Low stock khi availableStockBase <= minStockBase.
+  [PASS] Task INVENTORY_LOW_STOCK được tạo.
+  [PASS] Out of stock khi availableStockBase = 0.
+  [PASS] Task INVENTORY_OUT_OF_STOCK được tạo.
+  [PASS] Dedupe không tạo task trùng.
+  [PASS] Nhập kho đủ lại resolve LOW_STOCK/OUT_OF_STOCK.
+  [PASS] Order thiếu vật tư tạo INVENTORY_INSUFFICIENT_FOR_ORDER.
+  [PASS] Reserve xong resolve INVENTORY_RESERVATION_PENDING.
+
+--- 6. Order / Production Integration ---
+  [PASS] estimateMaterialsForOrder trả đúng vật tư chính.
+  [PASS] Có cán màng thì thêm requirement màng.
+  [PASS] Không map được material thì trả warning.
+  [PASS] reserveMaterialsForOrder tạo reservations đúng.
+  [PASS] Order thiếu vật tư bị báo thiếu.
+  [PASS] ProductionJob chuyển PRINTING khi thiếu vật tư bị chặn.
+  [PASS] ADMIN/MANAGER override thiếu vật tư phải có reason.
+  [PASS] Khi chuyển PRINTING thì consume reservation theo rule MVP.
+  [PASS] Hủy order/job thì release reservation chưa consume.
+  [PASS] Không double consume cùng reservation.
+
+--- 7. RBAC & Print Documents ---
+  [PASS] SALES xem material không thấy standardCost/averageCost/lastPurchasePrice.
+  [PASS] PRODUCTION không thấy cost nếu policy ẩn.
+  [PASS] ACCOUNTANT xem được cost/value nếu policy cho phép.
+  [PASS] DESIGNER/DELIVERY bị chặn kho đầy đủ.
+  [PASS] Server response phải filter cost, không chỉ ẩn UI.
+  [PASS] Phiếu nhập kho render được.
+  [PASS] Phiếu xuất kho render được.
+  [PASS] Phiếu giữ vật tư render được.
+  [PASS] Phiếu cắt giấy render được.
+  [PASS] Phiếu mượn/trả khuôn render được nếu mold print đã implement.
+  [PASS] Inventory dashboard route render được.
+  [PASS] Materials route render được.
+  [PASS] Conversions route render được.
+  [PASS] Molds route render được.
+  [PASS] npm run build pass.
+
+[INFO] Dọn dẹp dữ liệu test do không bật DEBUG_TEST_DATA=true...
+Cleaning up old test data...
+Cleanup finished.
+
+======================================================
+Inventory Core Test Summary:
+- CRUD: 8/8
+- Stock: 15/15
+- Adjustment & Reservation: 16/16
+- Conversion/Addendum: 22/22
+- Alerts/Task Center: 8/8
+- Order/Production: 10/10
+- RBAC/Print: 15/15
+------------------------------------------------------
+Total: 94 / 94 PASS
+======================================================
+
+Running build...  
+
+> packaging-printing-management@0.1.0 build
+> prisma generate && next build
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma\schema.prisma
+
+✔ Generated Prisma Client (v6.19.3) to .\node_modules\@prisma\client in 641ms
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+Tip: Need your database queries to be 1000x faster? Accelerate offers you that and more: https://pris.ly/tip-2-accelerate
+
+▲ Next.js 16.2.6 (Turbopack)
+- Environments: .env
+
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+  Creating an optimized production build ...
+✓ Compiled successfully in 26.9s
+  Running TypeScript ...
+  Finished TypeScript in 69s ...
+  Collecting page data using 3 workers ...
+SQLite database found during compile, size: 4947968
+SQLite database found during compile, size: 4947968
+SQLite database found during compile, size: 4947968
+SQLite database found during compile, size: 4947968
+  Generating static pages using 3 workers (0/6) ...
+  Generating static pages using 3 workers (1/6) 
+  Generating static pages using 3 workers (2/6) 
+  Generating static pages using 3 workers (4/6) 
+✓ Generating static pages using 3 workers (6/6) in 1272ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ƒ /api/test-payments
+├ ƒ /dashboard
+├ ƒ /dashboard/accounting/mobile
+├ ƒ /dashboard/accounting/mobile/cod
+├ ƒ /dashboard/accounting/mobile/debts
+├ ƒ /dashboard/accounting/mobile/payment-requests
+├ ƒ /dashboard/accounting/mobile/payment-requests/[id]
+├ ƒ /dashboard/accounting/mobile/payments
+├ ƒ /dashboard/accounting/mobile/payments/[id]
+├ ƒ /dashboard/crm
+├ ƒ /dashboard/crm/reactivation
+├ ƒ /dashboard/customers
+├ ƒ /dashboard/customers/[id]
+├ ƒ /dashboard/debts
+├ ƒ /dashboard/delivery
+├ ƒ /dashboard/delivery/[id]
+├ ƒ /dashboard/delivery/mobile
+├ ƒ /dashboard/delivery/mobile/job/[id]
+├ ƒ /dashboard/design-approval
+├ ƒ /dashboard/design-files
+├ ƒ /dashboard/inventory
+├ ƒ /dashboard/inventory/conversions
+├ ƒ /dashboard/inventory/inbound
+├ ƒ /dashboard/inventory/inbound/[id]
+├ ƒ /dashboard/inventory/inbound/[id]/print
+├ ƒ /dashboard/inventory/inbound/new
+├ ƒ /dashboard/inventory/materials/[id]
+├ ƒ /dashboard/inventory/molds
+├ ƒ /dashboard/inventory/outbound
+├ ƒ /dashboard/inventory/outbound/[id]
+├ ƒ /dashboard/inventory/outbound/[id]/print
+├ ƒ /dashboard/inventory/outbound/new
+├ ƒ /dashboard/inventory/warehouse-zones
+├ ƒ /dashboard/orders
+├ ƒ /dashboard/orders/[id]
+├ ƒ /dashboard/orders/new
+├ ƒ /dashboard/payments
+├ ƒ /dashboard/post-print
+├ ƒ /dashboard/post-print/mobile
+├ ƒ /dashboard/post-print/mobile/operation/[id]
+├ ƒ /dashboard/pricing-config
+├ ƒ /dashboard/print
+├ ƒ /dashboard/print/customers/[id]/debt-statement
+├ ƒ /dashboard/print/delivery-jobs/[id]
+├ ƒ /dashboard/print/inventory-transactions/[id]
+├ ƒ /dashboard/print/orders/[id]
+├ ƒ /dashboard/print/payments/[id]
+├ ƒ /dashboard/print/production-jobs/[id]
+├ ƒ /dashboard/print/quotes/[id]
+├ ƒ /dashboard/production
+├ ƒ /dashboard/production-schedule
+├ ƒ /dashboard/production/[id]
+├ ƒ /dashboard/production/[id]/issue-materials
+├ ƒ /dashboard/production/[id]/trace
+├ ƒ /dashboard/profile
+├ ƒ /dashboard/quotes
+├ ƒ /dashboard/quotes/[id]
+├ ƒ /dashboard/quotes/[id]/edit
+├ ƒ /dashboard/quotes/new
+├ ƒ /dashboard/reports
+├ ƒ /dashboard/reports/management-costing
+├ ƒ /dashboard/sales/mobile
+├ ƒ /dashboard/sales/mobile/customers
+├ ƒ /dashboard/sales/mobile/customers/new
+├ ƒ /dashboard/sales/mobile/orders
+├ ƒ /dashboard/sales/mobile/orders/[id]
+├ ƒ /dashboard/sales/mobile/quotes
+├ ƒ /dashboard/sales/mobile/quotes/[id]
+├ ƒ /dashboard/sales/mobile/quotes/new
+├ ƒ /dashboard/settings
+├ ƒ /dashboard/tasks
+├ ○ /login
+└ ƒ /r/[token]
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

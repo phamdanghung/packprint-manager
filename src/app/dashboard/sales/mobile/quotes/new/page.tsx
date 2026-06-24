@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ChevronLeft, Save, ArrowRight, CheckCircle2 } from 'lucide-react';
-import { calculateQuotePreview, createQuote, getActiveMaterials, getActiveLaminations, getActiveMachines } from '@/lib/quote-actions';
+import { calculateDigitalLabelQuotePreviewAction, createQuote, getActiveMaterials, getActiveLaminations, getActiveMachines } from '@/lib/quote-actions';
 import { getCustomers } from '@/lib/customer-actions';
 import { toast } from 'react-hot-toast';
 
@@ -75,13 +75,13 @@ export default function NewQuoteMobileWizard() {
       
       setLoading(true);
       try {
-        const res = await calculateQuotePreview({
+        const res = await calculateDigitalLabelQuotePreviewAction({
           quantity: Number(quantity),
           widthCm: Number(width),
           heightCm: Number(height),
           labelShape: 'RECTANGLE',
-          gapCm: 0.3,
-          layoutType: 'NORMAL',
+          gapMm: 3,
+          layoutType: 'AUTO',
           wasteSheets: 10,
           dieCutType: 'STRAIGHT',
           printingPricePerSheet: 1000,
@@ -91,19 +91,21 @@ export default function NewQuoteMobileWizard() {
           shippingFee: 0,
           materialId: material,
           laminationId: lamination || undefined,
-          machineCode
+          dieCutMachine: machineCode,
+          sheetSize: '32x35'
         });
 
         if (res.success && res.data) {
+          const previewData: any = res.data;
           setQuotePreview({
-            totalAmount: res.data.saleAmount,
+            totalAmount: previewData.totalAmount,
             items: [{
-              ...res.data,
+              ...previewData,
               productType: 'DECAL',
               name: `In Decal ${width}x${height}cm`,
               quantity: Number(quantity),
-              unitPrice: Math.round(res.data.saleAmount / Number(quantity)),
-              totalAmount: res.data.saleAmount,
+              unitPrice: previewData.unitPrice,
+              totalAmount: previewData.totalAmount,
               widthCm: Number(width),
               heightCm: Number(height),
               materialId: material,
@@ -112,7 +114,7 @@ export default function NewQuoteMobileWizard() {
               dieCutType: 'STRAIGHT',
               wasteSheets: 10,
               printingPricePerSheet: 1000,
-              pricingDetails: JSON.stringify(res.data)
+              pricingDetails: JSON.stringify(previewData)
             }]
           });
           setStep(3);

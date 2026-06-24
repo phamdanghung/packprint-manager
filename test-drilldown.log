@@ -1,0 +1,41 @@
+SQLite database found during compile, size: 4947968
+--- STARTING PHASE 22A.15 MANAGEMENT COST DRILLDOWN TESTS ---
+✓ Test Data Setup Completed
+
+--- RBAC TESTS ---
+  ✅ PASS: ADMIN can fetch drilldown detail
+  ✅ PASS: MANAGER can fetch drilldown detail
+  ✅ PASS: ACCOUNTANT can fetch drilldown detail
+  ✅ PASS: SALES get PERMISSION_DENIED
+  ✅ PASS: SALES gets no sensitive data in response
+  ✅ PASS: PRODUCTION get PERMISSION_DENIED
+
+--- CALCULATION & DATA TESTS ---
+  ✅ PASS: Gross profit uses Order.totalAmount
+  ✅ PASS: Drilldown material cost only counts completed PRODUCTION_ISSUE PXK using exact snapshot totalCost
+  ✅ PASS: ACTIVE ProductionCostLine included, CANCELLED excluded from cost
+  ✅ PASS: Total actual cost is sum of valid material and additional
+  ✅ PASS: Gross profit calculated correctly
+  ✅ PASS: Gross margin percent calculated correctly
+  ✅ PASS: CANCELLED ProductionCostLine visible as warning/audit in drilldown
+
+--- ACTION TESTS ---
+  ✅ PASS: Unauthorized roles cannot update management review note
+  ✅ PASS: Mark low-margin review action works and Internal note action works
+  ✅ PASS: Update action saves flag
+  ✅ PASS: Update action saves note
+  ✅ PASS: Update action saves reviewedById
+  ✅ PASS: Update action saves reviewedAt
+
+--- ANTI-LEAK TESTS ---
+  ✅ PASS: Order detail query does not leak managementMarginNote to SALES
+  ✅ PASS: Order detail query does not leak managementMarginFlag to SALES
+
+--- ZERO REVENUE TEST ---
+  ✅ PASS: Zero revenue safe, no NaN/Infinity
+
+RESULTS: 22/22 PASSED
+
+Cleaning up test data...
+Cleanup completed safely.
+ALL TESTS PASSED!

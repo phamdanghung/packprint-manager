@@ -2,8 +2,6 @@
 
 import { db } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
-import { DecalQuoteRequest, calculateDecalQuoteFromDb } from './pricing-engine/adapter';
-import { CalculatorOutput } from './pricing-engine/types';
 import { calculateDigitalLabelQuote } from '@/lib/pricing/digital-label/digital-label-pricing-engine';
 import { DigitalLabelInput, LabelShape } from '@/lib/pricing/digital-label/types';
 
@@ -47,23 +45,7 @@ export async function getActiveMachines() {
   return { success: true, data: [] };
 }
 
-// 1. Tính giá preview
-export async function calculateQuotePreview(input: DecalQuoteRequest): Promise<{ success: boolean; data?: CalculatorOutput; error?: string }> {
-  try {
-    const auth = await checkQuoteAuth(['ADMIN', 'MANAGER', 'SALES']);
-    if (!auth.ok) return { success: false, error: auth.error };
 
-    let result = await calculateDecalQuoteFromDb(input);
-    if (auth.user!.role === 'SALES') {
-      result.costAmount = 0;
-      result.grossProfit = 0;
-    }
-    return { success: true, data: result };
-  } catch (error: any) {
-    console.error('Lỗi tính giá preview:', error);
-    return { success: false, error: error.message || 'Có lỗi xảy ra khi tính giá' };
-  }
-}
 
 export async function calculateDigitalLabelQuotePreviewAction(input: any) {
   try {

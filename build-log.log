@@ -1,0 +1,116 @@
+
+> packaging-printing-management@0.1.0 build
+> prisma generate && next build
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma\schema.prisma
+
+✔ Generated Prisma Client (v6.19.3) to .\node_modules\@prisma\client in 1.64s
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+Tip: Interested in query caching in just a few lines of code? Try Accelerate today! https://pris.ly/tip-3-accelerate
+
+▲ Next.js 16.2.6 (Turbopack)
+- Environments: .env
+
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+  Creating an optimized production build ...
+✓ Compiled successfully in 38.5s
+  Running TypeScript ...
+  Finished TypeScript in 77s ...
+  Collecting page data using 3 workers ...
+SQLite database found during compile, size: 4947968
+SQLite database found during compile, size: 4947968
+SQLite database found during compile, size: 4947968
+SQLite database found during compile, size: 4947968
+  Generating static pages using 3 workers (0/6) ...
+  Generating static pages using 3 workers (1/6) 
+  Generating static pages using 3 workers (2/6) 
+  Generating static pages using 3 workers (4/6) 
+✓ Generating static pages using 3 workers (6/6) in 898ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ƒ /api/test-payments
+├ ƒ /dashboard
+├ ƒ /dashboard/accounting/mobile
+├ ƒ /dashboard/accounting/mobile/cod
+├ ƒ /dashboard/accounting/mobile/debts
+├ ƒ /dashboard/accounting/mobile/payment-requests
+├ ƒ /dashboard/accounting/mobile/payment-requests/[id]
+├ ƒ /dashboard/accounting/mobile/payments
+├ ƒ /dashboard/accounting/mobile/payments/[id]
+├ ƒ /dashboard/crm
+├ ƒ /dashboard/crm/reactivation
+├ ƒ /dashboard/customers
+├ ƒ /dashboard/customers/[id]
+├ ƒ /dashboard/debts
+├ ƒ /dashboard/delivery
+├ ƒ /dashboard/delivery/[id]
+├ ƒ /dashboard/delivery/mobile
+├ ƒ /dashboard/delivery/mobile/job/[id]
+├ ƒ /dashboard/design-approval
+├ ƒ /dashboard/design-files
+├ ƒ /dashboard/inventory
+├ ƒ /dashboard/inventory/conversions
+├ ƒ /dashboard/inventory/inbound
+├ ƒ /dashboard/inventory/inbound/[id]
+├ ƒ /dashboard/inventory/inbound/[id]/print
+├ ƒ /dashboard/inventory/inbound/new
+├ ƒ /dashboard/inventory/materials/[id]
+├ ƒ /dashboard/inventory/molds
+├ ƒ /dashboard/inventory/outbound
+├ ƒ /dashboard/inventory/outbound/[id]
+├ ƒ /dashboard/inventory/outbound/[id]/print
+├ ƒ /dashboard/inventory/outbound/new
+├ ƒ /dashboard/inventory/warehouse-zones
+├ ƒ /dashboard/orders
+├ ƒ /dashboard/orders/[id]
+├ ƒ /dashboard/orders/new
+├ ƒ /dashboard/payments
+├ ƒ /dashboard/post-print
+├ ƒ /dashboard/post-print/mobile
+├ ƒ /dashboard/post-print/mobile/operation/[id]
+├ ƒ /dashboard/pricing-config
+├ ƒ /dashboard/print
+├ ƒ /dashboard/print/customers/[id]/debt-statement
+├ ƒ /dashboard/print/delivery-jobs/[id]
+├ ƒ /dashboard/print/inventory-transactions/[id]
+├ ƒ /dashboard/print/orders/[id]
+├ ƒ /dashboard/print/payments/[id]
+├ ƒ /dashboard/print/production-jobs/[id]
+├ ƒ /dashboard/print/quotes/[id]
+├ ƒ /dashboard/production
+├ ƒ /dashboard/production-schedule
+├ ƒ /dashboard/production/[id]
+├ ƒ /dashboard/production/[id]/issue-materials
+├ ƒ /dashboard/production/[id]/trace
+├ ƒ /dashboard/profile
+├ ƒ /dashboard/quotes
+├ ƒ /dashboard/quotes/[id]
+├ ƒ /dashboard/quotes/[id]/edit
+├ ƒ /dashboard/quotes/new
+├ ƒ /dashboard/reports
+├ ƒ /dashboard/reports/management-costing
+├ ƒ /dashboard/sales/mobile
+├ ƒ /dashboard/sales/mobile/customers
+├ ƒ /dashboard/sales/mobile/customers/new
+├ ƒ /dashboard/sales/mobile/orders
+├ ƒ /dashboard/sales/mobile/orders/[id]
+├ ƒ /dashboard/sales/mobile/quotes
+├ ƒ /dashboard/sales/mobile/quotes/[id]
+├ ƒ /dashboard/sales/mobile/quotes/new
+├ ƒ /dashboard/settings
+├ ƒ /dashboard/tasks
+├ ○ /login
+└ ƒ /r/[token]
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
