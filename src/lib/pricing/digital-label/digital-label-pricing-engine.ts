@@ -77,9 +77,9 @@ export function calculateDigitalLabelQuote(input: DigitalLabelInput): PricingRes
   // Apply FREE_SHIPPING_INNER_CITY rule if exists
   const freeShippingRule = input.activeRules?.find((r: any) => r.ruleCode === 'FREE_SHIPPING_INNER_CITY');
   if (freeShippingRule) {
-    const config = typeof freeShippingRule.config === 'string' 
-      ? JSON.parse(freeShippingRule.config) 
-      : (freeShippingRule.config || {});
+    const config = typeof freeShippingRule.configJson === 'string' 
+      ? JSON.parse(freeShippingRule.configJson) 
+      : (freeShippingRule.configJson || {});
     
     const threshold = config.minOrderValueInclVat || 2000000;
     
