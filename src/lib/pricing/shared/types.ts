@@ -25,6 +25,7 @@ export interface FullPricingResponse {
   
   internalBreakdown: Record<string, any>;
   safeWarnings: string[];
+  notes?: string[];
 }
 
 // Sales Response (Omit internal costs)
@@ -36,6 +37,7 @@ export interface SalesPricingResponse {
   
   salesBreakdown: Record<string, any>;
   safeWarnings: string[];
+  notes?: string[];
 }
 
 export type PricingResponse = FullPricingResponse | SalesPricingResponse;

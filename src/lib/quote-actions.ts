@@ -153,7 +153,9 @@ export async function calculateDigitalLabelQuotePreviewAction(input: any) {
       sheetWidthCm,
       sheetHeightCm,
       usableWidthCm,
-      usableHeightCm
+      usableHeightCm,
+      
+      activeRules: await db.pricingRule.findMany({ where: { status: 'ACTIVE' } })
     };
 
     // 6. Calculate (Core engine naturally omits properties for SALES role)

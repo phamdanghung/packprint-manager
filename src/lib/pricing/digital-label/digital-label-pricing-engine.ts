@@ -6,6 +6,7 @@ import { filterPricingResponseByRole as rbacFilter } from '../shared/rbac-filter
 
 export function calculateDigitalLabelQuote(input: DigitalLabelInput): PricingResponse {
   const warnings: string[] = [];
+  const notes: string[] = [];
 
   // Validation
   if (input.quantity <= 0) {
@@ -66,12 +67,35 @@ export function calculateDigitalLabelQuote(input: DigitalLabelInput): PricingRes
   const markupAmount = applyBasisPoints(internalTotalCost, input.markupBasisPoints);
   const sellingPrice = internalTotalCost + markupAmount; // selling price before VAT
 
-  const shippingFee = input.shippingFee || 0;
-  const taxableAmount = sellingPrice + shippingFee;
+  let finalShippingFee = input.shippingFee || 0;
+  let taxableAmount = sellingPrice + finalShippingFee;
 
-  // 5. VAT & Total
-  const vatAmount = applyBasisPoints(taxableAmount, input.vatBasisPoints);
-  const totalAmount = taxableAmount + vatAmount;
+  // 5. VAT & Total (initial calculation to check rules)
+  let vatAmount = applyBasisPoints(taxableAmount, input.vatBasisPoints);
+  let totalAmount = taxableAmount + vatAmount;
+
+  // Apply FREE_SHIPPING_INNER_CITY rule if exists
+  const freeShippingRule = input.activeRules?.find((r: any) => r.ruleCode === 'FREE_SHIPPING_INNER_CITY');
+  if (freeShippingRule && finalShippingFee > 0) {
+    const config = typeof freeShippingRule.config === 'string' 
+      ? JSON.parse(freeShippingRule.config) 
+      : (freeShippingRule.config || {});
+    
+    const threshold = config.minOrderValueInclVat || 2000000;
+    
+    // We calculate total WITHOUT shipping fee to see if the goods alone qualify
+    const totalWithoutShipping = totalAmount - finalShippingFee - applyBasisPoints(finalShippingFee, input.vatBasisPoints);
+    
+    if (totalWithoutShipping >= threshold) {
+      finalShippingFee = 0;
+      taxableAmount = sellingPrice + finalShippingFee;
+      vatAmount = applyBasisPoints(taxableAmount, input.vatBasisPoints);
+      totalAmount = taxableAmount + vatAmount;
+      
+      const thresholdFormatted = new Intl.NumberFormat('vi-VN').format(threshold);
+      notes.push(`Đã miễn phí giao hàng do tổng tiền (sau VAT) >= ${thresholdFormatted}đ`);
+    }
+  }
 
   // 6. Margins
   const grossProfit = sellingPrice - internalTotalCost;
@@ -110,7 +134,8 @@ export function calculateDigitalLabelQuote(input: DigitalLabelInput): PricingRes
       usableWidthCm: input.usableWidthCm,
       usableHeightCm: input.usableHeightCm
     },
-    safeWarnings: warnings
+    safeWarnings: warnings,
+    notes: notes
   };
 
   // 8. RBAC Filter

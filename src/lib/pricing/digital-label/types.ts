@@ -35,4 +35,7 @@ export interface DigitalLabelInput {
   cuttingPricePerSheet?: number;
   fileProcessingFee: number;
   shippingFee?: number;
+  
+  // Rules
+  activeRules?: any[];
 }

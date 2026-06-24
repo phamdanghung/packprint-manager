@@ -22,7 +22,8 @@ export function filterPricingResponseByRole(fullResponse: FullPricingResponse, r
       usableWidthCm: fullResponse.internalBreakdown?.usableWidthCm,
       usableHeightCm: fullResponse.internalBreakdown?.usableHeightCm
     },
-    safeWarnings: fullResponse.safeWarnings
+    safeWarnings: fullResponse.safeWarnings,
+    notes: fullResponse.notes
   };
 
   return salesResponse;
