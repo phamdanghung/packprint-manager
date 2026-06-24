@@ -161,7 +161,23 @@ export function calculatePricing(
   const grossProfitRate = saleAmount > 0 ? (grossProfit / saleAmount) * 100 : 0;
   
   const vatAmount = saleAmount * (input.vatRate / 100);
-  const totalAmount = saleAmount + vatAmount + input.shippingFee;
+  let finalShippingFee = input.shippingFee;
+  let totalInclVatWithoutShipping = saleAmount + vatAmount;
+
+  // Rule: FREE_SHIPPING_INNER_CITY
+  const freeShippingRule = config.pricingRules.find(r => r.ruleCode === 'FREE_SHIPPING_INNER_CITY');
+  if (freeShippingRule && finalShippingFee > 0) {
+    try {
+      const rConf = JSON.parse(freeShippingRule.configJson);
+      if (totalInclVatWithoutShipping >= rConf.minOrderValueInclVat) {
+        finalShippingFee = 0;
+        appliedRules.push('FREE_SHIPPING_INNER_CITY');
+        notes.push(`Đã miễn phí giao hàng do tổng tiền (sau VAT) >= ${rConf.minOrderValueInclVat.toLocaleString()}đ.`);
+      }
+    } catch (e) { }
+  }
+
+  const totalAmount = saleAmount + vatAmount + finalShippingFee;
 
   return {
     labelsPerSheet,
@@ -183,7 +199,7 @@ export function calculatePricing(
     grossProfit,
     grossProfitRate,
     vatAmount,
-    shippingFee: input.shippingFee,
+    shippingFee: finalShippingFee,
     totalAmount,
     packingResult,
     appliedRules,

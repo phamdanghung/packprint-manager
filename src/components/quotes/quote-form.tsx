@@ -1147,6 +1147,17 @@ export default function QuoteForm({ customers, materials, machines, laminations,
                 </div>
               )}
 
+              {previewData.notes?.length > 0 && (
+                <div className="mt-4 p-3 bg-blue-50 text-blue-800 text-xs rounded-lg border border-blue-200 flex flex-col gap-1">
+                  <strong className="flex items-center gap-1"><LucideAlertCircle className="w-4 h-4" /> Ghi chú hệ thống:</strong>
+                  <ul className="list-disc pl-5 space-y-1 mt-1">
+                    {previewData.notes.map((n: string, i: number) => (
+                      <li key={i}>{n}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
               <div className="mt-6 flex flex-col gap-2">
                 <button 
                   onClick={() => handleSave('DRAFT')}
